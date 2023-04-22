@@ -1,0 +1,340 @@
+{
+    "LOGIN": {
+        "rfid": null,
+        "employeeID": null,
+        "nameTH": null,
+        "nameEN": null,
+        "password": null,
+        "root": null
+    },
+    "DATA": [
+        {
+            "rfid": "1514079705",
+            "employeeID": "5678",
+            "nameTH": "ผู้ดูแลระบบ",
+            "nameEN": "Admin",
+            "password": "5678",
+            "root": "Admin"
+        },
+        {
+            "rfid": "1514077777",
+            "employeeID": "347",
+            "nameTH": "ชัชฏาภรณ์",
+            "nameEN": "Chatchadaporn",
+            "password": "347",
+            "root": "Admin"
+        },
+        {
+            "rfid": "1514044570",
+            "employeeID": "3385",
+            "nameTH": "ชิตชนก",
+            "nameEN": "Chitchanok",
+            "password": "3385",
+            "root": "Admin"
+        },
+        {
+            "rfid": "1514009435",
+            "employeeID": "3521",
+            "nameTH": "ฉัตรพร",
+            "nameEN": "Chatporn",
+            "password": "3521",
+            "root": "Admin"
+        },
+        {
+            "rfid": "1513974300",
+            "employeeID": "3000",
+            "nameTH": "มุกจรินทร์",
+            "nameEN": "Mookjarin",
+            "password": "3000",
+            "root": "Admin"
+        },
+        {
+            "rfid": "1513939165",
+            "employeeID": "3517",
+            "nameTH": "สำลี",
+            "nameEN": "Samlee",
+            "password": "3517",
+            "root": "Admin"
+        },
+        {
+            "rfid": "1513904030",
+            "employeeID": "3267",
+            "nameTH": "ศิริพร",
+            "nameEN": "Siriporn",
+            "password": "3267",
+            "root": "User"
+        },
+        {
+            "rfid": "1513868895",
+            "employeeID": "3348",
+            "nameTH": "ไพลิน",
+            "nameEN": "Pririn",
+            "password": "3348",
+            "root": "User"
+        },
+        {
+            "rfid": "1513833760",
+            "employeeID": "3365",
+            "nameTH": "วันทนีย์",
+            "nameEN": "Wantanee",
+            "password": "3365",
+            "root": "User"
+        },
+        {
+            "rfid": "1513798625",
+            "employeeID": "3379",
+            "nameTH": "สุดารัตน์",
+            "nameEN": "Sudarut",
+            "password": "3379",
+            "root": "User"
+        },
+        {
+            "rfid": "1513763490",
+            "employeeID": "3384",
+            "nameTH": "ประภัสสร",
+            "nameEN": "Prapatsorn",
+            "password": "3384",
+            "root": "User"
+        },
+        {
+            "rfid": "1513728355",
+            "employeeID": "3381",
+            "nameTH": "อรทัย",
+            "nameEN": "Orathai",
+            "password": "3381",
+            "root": "User"
+        },
+        {
+            "rfid": "1513693220",
+            "employeeID": "3800",
+            "nameTH": "ศศิกาญจน์",
+            "nameEN": "Sasikarn",
+            "password": "3800",
+            "root": "User"
+        },
+        {
+            "rfid": "1513658085",
+            "employeeID": "3668",
+            "nameTH": "ณัฐกานต์",
+            "nameEN": "Nattakarn",
+            "password": "3668",
+            "root": "User"
+        },
+        {
+            "rfid": "1513622950",
+            "employeeID": "3678",
+            "nameTH": "อนุสรณ์",
+            "nameEN": "Anusorn",
+            "password": "3678",
+            "root": "User"
+        },
+        {
+            "rfid": "1513587815",
+            "employeeID": "3696",
+            "nameTH": "กรรณิการ์",
+            "nameEN": "Kannika",
+            "password": "3696",
+            "root": "User"
+        },
+        {
+            "rfid": "1513552680",
+            "employeeID": "6969",
+            "nameTH": "อรุณ",
+            "nameEN": "Arun",
+            "password": "6969",
+            "root": "User"
+        },
+        {
+            "rfid": "1513517545",
+            "employeeID": "2222",
+            "nameTH": "สุวรรณี",
+            "nameEN": "Suwanee",
+            "password": "2222",
+            "root": "User"
+        },
+        {
+            "rfid": "1513482410",
+            "employeeID": "3758",
+            "nameTH": "อาทิตย์",
+            "nameEN": "Arthit",
+            "password": "3758",
+            "root": "User"
+        },
+        {
+            "rfid": "1513447275",
+            "employeeID": "1116",
+            "nameTH": "รุ่งเรือง",
+            "nameEN": "Rungrueng",
+            "password": "1116",
+            "root": "User"
+        },
+        {
+            "rfid": "1513412140",
+            "employeeID": "820",
+            "nameTH": "มาลินี",
+            "nameEN": "Malinee",
+            "password": "820",
+            "root": "User"
+        },
+        {
+            "rfid": "1513377005",
+            "employeeID": "3781",
+            "nameTH": "สุนันท์",
+            "nameEN": "Sunan",
+            "password": "3781",
+            "root": "User"
+        },
+        {
+            "rfid": "1513341870",
+            "employeeID": "3774",
+            "nameTH": "กัลยารัตน์",
+            "nameEN": "Kallayarat",
+            "password": "3774",
+            "root": "User"
+        },
+        {
+            "rfid": "1513306735",
+            "employeeID": "3840",
+            "nameTH": "สิริรัก",
+            "nameEN": "Sirirak",
+            "password": "3840",
+            "root": "User"
+        },
+        {
+            "rfid": "1513271600",
+            "employeeID": "3819",
+            "nameTH": "สมชาย",
+            "nameEN": "Somchai",
+            "password": "3819",
+            "root": "User"
+        },
+        {
+            "rfid": "1513236465",
+            "employeeID": "3839",
+            "nameTH": "ปิยนุช",
+            "nameEN": "Piyanuch",
+            "password": "3839",
+            "root": "User"
+        },
+        {
+            "rfid": "1513201330",
+            "employeeID": "3775",
+            "nameTH": "กมลทิพย์",
+            "nameEN": "Kamonthip",
+            "password": "3775",
+            "root": "User"
+        },
+        {
+            "rfid": "1513166195",
+            "employeeID": "3759",
+            "nameTH": "รุ่งเจริญ",
+            "nameEN": "Rungjarent",
+            "password": "3759",
+            "root": "User"
+        },
+        {
+            "rfid": "1513131060",
+            "employeeID": "3759",
+            "nameTH": "หนึ่ง",
+            "nameEN": "Nueng",
+            "password": "3759",
+            "root": "User"
+        },
+        {
+            "rfid": "1513095925",
+            "employeeID": "3853",
+            "nameTH": "เอวลิน",
+            "nameEN": "Evelyn",
+            "password": "3853",
+            "root": "User"
+        },
+        {
+            "rfid": "1513060790",
+            "employeeID": "3782",
+            "nameTH": "สะกุณา",
+            "nameEN": "Sakuna",
+            "password": "3782",
+            "root": "User"
+        },
+        {
+            "rfid": "1513025655",
+            "employeeID": "3848",
+            "nameTH": "นันทวัฒน์",
+            "nameEN": "Nunthawat",
+            "password": "3848",
+            "root": "User"
+        },
+        {
+            "rfid": "1512990520",
+            "employeeID": "3818",
+            "nameTH": "มลฤดี",
+            "nameEN": "Monruedee",
+            "password": "3818",
+            "root": "User"
+        },
+        {
+            "rfid": "1512955385",
+            "employeeID": "3782",
+            "nameTH": "สะกุณา",
+            "nameEN": "Sakuna",
+            "password": "3782",
+            "root": "User"
+        },
+        {
+            "rfid": "1512920250",
+            "employeeID": "3365",
+            "nameTH": "วันทนีย์",
+            "nameEN": "Wantanee",
+            "password": "3365",
+            "root": "User"
+        },
+        {
+            "rfid": "1512885115",
+            "employeeID": "3818",
+            "nameTH": "มลฤดี",
+            "nameEN": "Monruedee",
+            "password": "3818",
+            "root": "User"
+        },
+        {
+            "rfid": "1512849980",
+            "employeeID": "3852",
+            "nameTH": "สุจิตรา",
+            "nameEN": "Suchitra",
+            "password": "3852",
+            "root": "User"
+        },
+        {
+            "rfid": "1512814845",
+            "employeeID": "3871",
+            "nameTH": "สิริยาภรณ์",
+            "nameEN": "Siriyaporn",
+            "password": "3871",
+            "root": "Admin"
+        },
+        {
+            "rfid": "1512779710",
+            "employeeID": "3826",
+            "nameTH": "สุระกรณ์",
+            "nameEN": "Surakorn",
+            "password": "3826",
+            "root": "User"
+        },
+        {
+            "rfid": "1512744575",
+            "employeeID": "3872",
+            "nameTH": "กัญญาวีย์",
+            "nameEN": "Kanyawee",
+            "password": "3872",
+            "root": "User"
+        },
+        {
+            "rfid": "1512709440",
+            "employeeID": "3909",
+            "nameTH": "ประไพ",
+            "nameEN": "Prapai",
+            "password": "3909",
+            "root": "User"
+        }
+    ]
+}

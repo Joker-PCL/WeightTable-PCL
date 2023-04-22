@@ -1,0 +1,15 @@
+{
+    "tabletID": "T.11",
+    "scaleID": "PI-216",
+    "productName": "Goutic",
+    "Lot": "20269",
+    "weight_control": "1.620",
+    "min": "1.580",
+    "max": "1.660",
+    "min_control": "1.540",
+    "max_control": "1.700",
+    "percent": "3%",
+    "min_thickness": "2.25",
+    "max_thickness": "2.55",
+    "admin_set": "ชิตชนก"
+}

@@ -1,0 +1,4 @@
+[Desktop Entry]
+Type = Application
+Name = poligram
+Exec =/usr/bin/lxterminal -e /home/pi/Desktop/WeightTable/poligram.sh
