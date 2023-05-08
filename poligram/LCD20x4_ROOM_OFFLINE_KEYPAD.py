@@ -452,6 +452,7 @@ def main():
             ]
 
             packetdata_arr.extend(["-"] * 11) # เพิ่ม - เข้า packetdata_arr 11 ตัว
+            checkData_offline() # ตรวจสอบและส่งข้อมูล offline
             status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
 
             if not status:
