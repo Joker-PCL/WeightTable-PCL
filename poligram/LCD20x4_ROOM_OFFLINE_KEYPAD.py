@@ -56,6 +56,12 @@ WEIGHTTABLE_DATA_RANGE = "WEIGHT!A5:S"
 
 TABLET_ID = 'T15'
 
+# แสดงผลหน้าจอ
+def printScreen(row, text):
+    clearScreen(row)
+    lcd.cursor_pos = (row, int((20-len(text))/2))
+    lcd.write_string(text)
+
 # แสดงผลแบบเรียงอักษร
 def textEnd(text, rows, cols):
     for i in range(len(text)):
@@ -122,11 +128,52 @@ def firtconnect():
         print(f"<<First connect error>> \n {e} \n")
         return False
 
+# function send JSON to googlesheets
+def checkData_offline():
+    offline_data = read_json(OFFLINE_JSON_DIR)
+    if offline_data["DATA"]:
+        dataArr = []
+        for data in offline_data["DATA"]:
+            data.extend(["-"] * 11) # เพิ่ม - ไปอีก 11 ตัว
+            dataArr.append(data)
+        try: 
+            print("Sending data offline...")
+            clearScreen(3)
+            textEnd("Sending data..", 3, 3)
+            status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, dataArr)
+
+            Timestamp_offline = offline_data["DATA"][0][0]
+
+            if status:      
+                msg_Notify = '\n🔰 มีข้อมูล offline เพิ่มเข้ามาไหม่ \n' +\
+                    '🔰 ระบบเครื่องชั่ง 10 เม็ด \n' +\
+                    '🔰 เครื่องตอก: '+ TABLET_ID + '\n' +\
+                    '❎ ขาดการเชื่อมต่อ \n  ' +\
+                    Timestamp_offline + '\n' +\
+                    '✅ เชื่อมต่ออีกครั้ง \n  ' +\
+                    datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+                
+                # ส่งไลน์แจ้งเตือน
+                lineNotify(msg_Notify)
+
+                # ล้างข้อมูล JSON
+                write_json(OFFLINE_JSON_DIR, {"DATA": []})
+                print("<<< send data success >>>", end='\n\n')
+
+                clearScreen(3)
+                textEnd("Success", 3, 6)
+        except Exception as e:
+            print(f"\n<< checkData offline >> \n {e} \n")
+            clearScreen(3)
+            textEnd("Failed", 3, 6)
+
 # อัพเดทฐานข้อมูลผู้ใช้งาน
 def update_user_data():
     try:
         # อัพเดทรายชื่อพนักงาน
         print("Update datalist...")
+        clearScreen(3)
+        textEnd("Update datalist...", 3, 1)
         get_data = service.spreadsheets().values().get(
             spreadsheetId=DATABASE_SHEETID, range=DATABASE_USER_RANGE).execute()
         data_list = get_data["values"]
@@ -162,45 +209,44 @@ def update_user_data():
 
         write_json(SETTING_JSON_DIR, setting_jsonData)
         print("<<< update success >>>", end='\n\n')
+        clearScreen(3)
+        textEnd("Success", 3, 6)
 
     except Exception as e:
         print(f"<<update user data error>> \n {e} \n")
+        clearScreen(3)
+        textEnd("Failed", 3, 6)
 
 # ลงชื่อเข้าใช้งาน
 def login():
     try:
         jsonData = read_json(DATABASE_JSON_DIR)
-        id = ""
-        result = None
-
-        def on_key_press(event):
-            nonlocal id, result
-            if event.name == 'enter' and len(id) == 10:
-                result = list(filter(lambda item: (
-                    item['rfid']) == id, jsonData["DATA"]))
-                if result:
-                    for key in jsonData["LOGIN"]:
-                        jsonData["LOGIN"][key] = result[0][key]
-
-                    write_json(DATABASE_JSON_DIR, jsonData)
-
-                    # keyboard.unhook_all()  # ยกเลิกการติดตามการกดคีย์
-                    return result[0]
-                else:  
-                    print(f"ไม่พบข้อมูล id {id}")
-                    id = ""
-            elif len(event.name) == 1:
-                id += event.name
-            else:
-                id = ""
-
         print("<< LOGIN >>")
         print("Please scan your RFID card...")
-        keyboard.on_press(on_key_press)
-        keyboard.wait("enter")
-
-        return result[0]
         
+        while True:
+            printScreen(1, "<< LOGIN >>")
+            printScreen(3, "...RFID SCAN...")
+
+            id = input("RFID: ")
+            printScreen(1,f"ID: {id}")
+
+            result = list(filter(lambda item: (
+                        item['rfid']) == id, jsonData["DATA"]))
+            if result:
+                for key in jsonData["LOGIN"]:
+                    jsonData["LOGIN"][key] = result[0][key]
+
+                write_json(DATABASE_JSON_DIR, jsonData)
+                printScreen(3, result[0]["nameEN"] + " " + TABLET_ID)
+                sleep(1)
+                return result[0]
+            
+            else:
+                print(f"ไม่พบข้อมูล id {id}")
+                printScreen(3, "id not found")
+                sleep(1)
+
     except Exception as e:
         print(f"<<login error>> \n {e} \n")
 
@@ -213,11 +259,32 @@ def logout():
 
     write_json(DATABASE_JSON_DIR, jsonData)
 
+# function Send Data to googlesheets
+def sendData_sheets(sheetRange, dataArr):
+    try:
+        response = service.spreadsheets().values().append(
+            spreadsheetId=WEIGHTTABLE_SHEETID,
+            range=sheetRange,
+            body={
+                "majorDimension": "ROWS",
+                "values": dataArr
+            },
+            valueInputOption="USER_ENTERED"
+        ).execute()
+
+        print(f"{response} \n")
+
+        return True
+    
+    except Exception as e:
+        print(f"\n<<Send data sheets error>> \n {e} \n")
+        return False
+
 # อ่านค่าน้ำหนักจากเครื่องชั่ง
 def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
     
     dataWeight = []  # เก็บค่าน้ำหนัก
-    sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
+    # sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
 
     while len(dataWeight) < 2:
         now = datetime.now()
@@ -225,14 +292,18 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         Today = now.strftime("%d/%m/%Y")  # วันที่
         Time = now.strftime("%H:%M:%S")  # เวลา
 
+        clearScreen(1)
         lcd.cursor_pos = (1, 4)
         lcd.write_string("<< Ready >>")
         print(str(date_time))
         print("READY:", TABLET_ID)
+        sleep(5)
         
         # อ่านค่าจาก port rs232
-        w = sr.readline()
-        currentWeight = w.decode('ascii', errors='ignore')
+        # w = sr.readline()
+        # w = random(0.155, 0.165)
+        currentWeight = str(random.uniform(0.155,0.165))
+        # currentWeight = w.decode('ascii', errors='ignore')
         currentWeight = currentWeight.replace("?", "").strip().upper()
         currentWeight = currentWeight.replace("G", "").strip()
         currentWeight = currentWeight.replace("N", "").strip()
@@ -295,43 +366,20 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         else:
             pass
 
-# function Send Data to googlesheets
-def sendData_sheets(sheetRange, dataArr):
-    try:
-        response = service.spreadsheets().values().append(
-            spreadsheetId=WEIGHTTABLE_SHEETID,
-            range=sheetRange,
-            body={
-                "majorDimension": "ROWS",
-                "values": dataArr
-            },
-            valueInputOption="USER_ENTERED"
-        ).execute()
-
-        print(f"{response} \n")
-
-        return True
-    
-    except Exception as e:
-        print(f"\n<<Send data sheets error>> \n {e} \n")
-        return False
-
 # สรุปผล
-def weightSummary(status):
-    Min_W = min(dataWeight[1:])
-    Max_W = max(dataWeight[1:])
-    AVG_W = round(sum(dataWeight[1:])/len(dataWeight[1:]), 3)
-    
+def weightSummary(Min_W, Max_W, AVG_W, status):
+    if status == "OFFLINE":
+        led3.blink()
+
     lcd.clear()
-    lcd.cursor_pos = (0, int((20-len(status))/2))
-    lcd.write_string(status)
-    lcd.cursor_pos = (1, 2)
-    lcd.write_string("WEIGHT VARIATION")
+    printScreen(0, "WEIGHT VARIATION")
+    printScreen(1, f"<< {status} >>")
     textEnd("MIN:"+str('%.3f' % Min_W), 2, 0)
     textEnd("MAX:"+str('%.3f' % Max_W), 2, 11)
     textEnd("AVG:"+str('%.3f' % AVG_W), 3, 6)
     sleep(5)
 
+# โปรแกรมหลัก
 def main():
     lcd.clear()
     led1.blink()
@@ -349,33 +397,20 @@ def main():
     service = firtconnect()
     
     # ตรวจสอบข้อมูล OFFLINE
-    if service:
-        print("<<<< CHECK_OFFLINE_DATA >>>>")
-        offline_data = read_json(OFFLINE_JSON_DIR)
-        if offline_data["DATA"]:
-            print("Sending data offline...")
-            dataArr = []
-            for data in offline_data["DATA"]:
-                data.extend(["-"] * 11) # เพิ่ม - ไปอีก 11 ตัว
-                dataArr.append(data)
-
-            status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, dataArr)
-            if status:
-                write_json(OFFLINE_JSON_DIR, {"DATA": []})
+    printScreen(1, "CHECK DATA OFFLINE")
+    print("<<<< CHECK DATA OFFLINE >>>>")
+    checkData_offline()
 
     # อัพเดพข้อมูลรายชื่อ
-    clearScreen(1)
-    lcd.cursor_pos = (1, 4)
-    lcd.write_string("UPDATE DATA")
-    print("<<<< UPDATE_DATA >>>>")
+    printScreen(1, "UPDATE DATA LIST")
+    print("<<<< UPDATE DATA >>>>")
     update_user_data()
 
-    lcd.cursor_pos = (3, 3)
-    lcd.write_string("<< SUCCESS >>")
+    printScreen(3, "<< SUCCESS >>")
 
-    # ตรวจสอบสถานะ login
     try:
         result = read_json(DATABASE_JSON_DIR)["LOGIN"]
+        # ตรวจสอบสถานะ login
         if not result["rfid"]:
             result = login() # เข้าหน้า login
         if result:
@@ -388,15 +423,23 @@ def main():
             root = result["root"]
 
             setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
+            
+            # มีข้อมูลการตั้งค่าน้ำหนักยา
             if setting_data["productName"]:
-                weight = getWeight(
-                    float(setting_data["min"]),
-                    float(setting_data["max"]),
-                    float(setting_data["min_control"]),
-                    float(setting_data["max_control"])) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+                # ค่า min,max ที่กำหนด
+                Min = float(setting_data["min"])
+                Max = float(setting_data["max"])
+                Min_DVT = float(setting_data["min_control"])
+                Max_DVT = float(setting_data["max_control"])
             else:
-                weight = getWeight()
+                Min = 0
+                Max =  0
+                Min_DVT = 0
+                Max_DVT = 0
+            
+            weight = getWeight(Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง              
 
+            # สร้างข้อมูลเตรียมส่งบันทึก
             packetdata_arr = [
                 weight["time"],
                 "ONLINE",
@@ -404,22 +447,69 @@ def main():
                 weight["weight2"],
                 None,
                 None,
-                None,
+                "ไม่ระบุ",
                 nameTH,
             ]
 
-            # เพิ่ม - ไปอีก 11 ตัว
-            packetdata_arr.extend(["-"] * 11) 
+            packetdata_arr.extend(["-"] * 11) # เพิ่ม - เข้า packetdata_arr 11 ตัว
+            status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
 
-            status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr])
-            if status:
-                pass
-            else:
+            if not status:
                 packetdata_arr[1] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
                 update_json(OFFLINE_JSON_DIR, packetdata_arr[0:8]) # บันทึกข้อมูล 1-7 ไปยัง offline.json 
 
+            # ค่า min,max,avg ของน้ำหนักที่ชั่ง
+            weight = [float(weight["weight1"]), float(weight["weight2"])]
+            Min_W = min(weight)
+            Max_W = max(weight)
+            AVG_W = round(sum(weight)/len(weight), 3)
+
+            weightSummary(Min_W, Max_W, AVG_W, packetdata_arr[1])
             logout() # ออกจากระบบ
 
+            # มีข้อมูลการตั้งค่าน้ำหนักยา
+            if setting_data["productName"]:
+                if AVG_W >= Min and AVG_W <= Max:
+                    led1.blink()
+                    led2.off()
+                    led3.off()
+                    clearScreen(1)
+                    textEnd("Very Good", 1, 5)
+
+                elif AVG_W >= Min_DVT and AVG_W <= Max_DVT:
+                    led1.off()
+                    led2.blink()
+                    led3.off()
+                    clearScreen(1)
+                    textEnd("Failed!", 1, 6)
+
+                else:
+                    led1.off()
+                    led2.off()
+                    led3.blink()
+                    clearScreen(1)
+                    textEnd("Failed!", 1, 6)
+                    # write Remark
+
+                    meseage = "ค่าเฉลี่ย "+str('%.3f' % AVG_W)+" g."+\
+                        '\n\r'+"ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด("+str('%.3f' % Min_DVT)+\
+                        "g. - "+str('%.3f' % Max_DVT)+"g.)"
+
+                    # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+                    sendData_sheets(WEIGHTTABLE_DATA_RANGE, [[weight["time"], meseage]])
+    
+                    
+                    meseage_alert = '\n'+str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))+'\n'+\
+                        'ระบบเครื่องชั่ง 10 เม็ด'+'\n'+\
+                        'เครื่องตอก: '+TABLET_ID+'\n'+\
+                        'ชื่อยา: '+setting_data["productName"]+'\n'+\
+                        'Lot.'+setting_data["Lot"]+'\n'+\
+                        'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+'\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด'+'\n'+\
+                        '('+str('%.3f' % Min_DVT)+'g. - '+str('%.3f' % Max_DVT) + 'g.)'
+                    
+                    # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+                    lineNotify(meseage_alert)
+                
     except Exception as e:
         print(f"<<main error>> \n {e} \n")
 
