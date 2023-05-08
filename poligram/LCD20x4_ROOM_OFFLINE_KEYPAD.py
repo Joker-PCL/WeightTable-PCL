@@ -298,7 +298,7 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         led1.off()
         led2.off()
         led3.off()
-        
+
         # อ่านค่าจาก port rs232
         # w = sr.readline()
         # w = random(0.155, 0.165)
@@ -442,7 +442,6 @@ def main():
             ]
 
             packetdata_arr.extend(["-"] * 11) # เพิ่ม - เข้า packetdata_arr 11 ตัว
-            printScreen(1, "Sending data...")
             checkData_offline() # ตรวจสอบและส่งข้อมูล offline
             status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
 
