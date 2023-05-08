@@ -53,6 +53,7 @@ OFFLINE_JSON_DIR = '/home/pi/Desktop/WEIGHT4/New_Weight/database/offline.json'
 WEIGHTTABLE_SHEETID = "1Vfy1ovKCEVWl9X3cO-M4AV9IzOmuK467IeMWragfq-o"
 WEIGHTTABLE_SETTING_RANGE = "Setting!A2:A14"
 WEIGHTTABLE_DATA_RANGE = "WEIGHT!A5:S"
+WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
 
 TABLET_ID = 'T15'
 
@@ -497,7 +498,7 @@ def main():
                         "g. - "+str('%.3f' % Max_DVT)+"g.)"
 
                     # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                    sendData_sheets(WEIGHTTABLE_DATA_RANGE, [[weight["time"], meseage]])
+                    sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[weight["time"], meseage]])
     
                     
                     meseage_alert = '\n'+str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))+'\n'+\
