@@ -374,55 +374,54 @@ def main():
     lcd.write_string("<< SUCCESS >>")
 
     # ตรวจสอบสถานะ login
-    # try:
-    result = read_json(DATABASE_JSON_DIR)["LOGIN"]
-    if not result["rfid"]:
-        result = login() # เข้าหน้า login
-    if result:
-        print(result)
-        rfid = result["rfid"]
-        employeeID = result["employeeID"]
-        nameEN = result["nameEN"]
-        nameTH = result["nameTH"]
-        password = result["password"]
-        root = result["root"]
+    try:
+        result = read_json(DATABASE_JSON_DIR)["LOGIN"]
+        if not result["rfid"]:
+            result = login() # เข้าหน้า login
+        if result:
+            print(result)
+            rfid = result["rfid"]
+            employeeID = result["employeeID"]
+            nameEN = result["nameEN"]
+            nameTH = result["nameTH"]
+            password = result["password"]
+            root = result["root"]
 
-        setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
-        if setting_data["productName"]:
-            weight = getWeight(
-                float(setting_data["min"]),
-                float(setting_data["max"]),
-                float(setting_data["min_control"]),
-                float(setting_data["max_control"])) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
-        else:
-            weight = getWeight()
+            setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
+            if setting_data["productName"]:
+                weight = getWeight(
+                    float(setting_data["min"]),
+                    float(setting_data["max"]),
+                    float(setting_data["min_control"]),
+                    float(setting_data["max_control"])) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+            else:
+                weight = getWeight()
 
-        packetdata_arr = [
-            weight["time"],
-            "ONLINE",
-            weight["weight1"],
-            weight["weight2"],
-            None,
-            None,
-            None,
-            nameTH,
-        ]
+            packetdata_arr = [
+                weight["time"],
+                "ONLINE",
+                weight["weight1"],
+                weight["weight2"],
+                None,
+                None,
+                None,
+                nameTH,
+            ]
 
-        # เพิ่ม - ไปอีก 11 ตัว
-        packetdata_arr.extend(["-"] * 11) 
+            # เพิ่ม - ไปอีก 11 ตัว
+            packetdata_arr.extend(["-"] * 11) 
 
-        status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr])
-        if status:
-            pass
-        else:
-            packetdata_arr[1] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
-            update_json(OFFLINE_JSON_DIR, packetdata_arr[0:8]) # บันทึกข้อมูล 1-7 ไปยัง offline.json 
+            status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr])
+            if status:
+                pass
+            else:
+                packetdata_arr[1] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
+                update_json(OFFLINE_JSON_DIR, packetdata_arr[0:8]) # บันทึกข้อมูล 1-7 ไปยัง offline.json 
 
-        logout() # ออกจากระบบ
+            logout() # ออกจากระบบ
 
-    # except Exception as e:
-    #     print(f"<<main error>> \n {e} \n")
+    except Exception as e:
+        print(f"<<main error>> \n {e} \n")
 
 if __name__ == '__main__':
-    while True:
-        main()
+    main()
