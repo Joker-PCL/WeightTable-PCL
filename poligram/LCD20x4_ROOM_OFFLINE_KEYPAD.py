@@ -64,9 +64,10 @@ def printScreen(row, text):
     lcd.write_string(text)
 
 # แสดงผลแบบเรียงอักษร
-def textEnd(text, rows, cols):
+def textEnd(row, text):
+    clearScreen(row)
     for i in range(len(text)):
-        lcd.cursor_pos = (rows, cols+i)
+        lcd.cursor_pos = (row, int((20-len(text))/2)+i)
         lcd.write_string(text[i])
         sleep(0.15)
 
@@ -139,8 +140,7 @@ def checkData_offline():
             dataArr.append(data)
         try: 
             print("Sending data offline...")
-            clearScreen(3)
-            textEnd("Sending data..", 3, 3)
+            textEnd(3, "Sending data..")
             status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, dataArr)
 
             Timestamp_offline = offline_data["DATA"][0][0]
@@ -161,20 +161,19 @@ def checkData_offline():
                 write_json(OFFLINE_JSON_DIR, {"DATA": []})
                 print("<<< send data success >>>", end='\n\n')
 
-                clearScreen(3)
-                textEnd("Success", 3, 6)
+                textEnd(3, "Success")
+            else:
+                textEnd(3, "Failed")
+
         except Exception as e:
             print(f"\n<< checkData offline >> \n {e} \n")
-            clearScreen(3)
-            textEnd("Failed", 3, 6)
-
+            
 # อัพเดทฐานข้อมูลผู้ใช้งาน
 def update_user_data():
     try:
         # อัพเดทรายชื่อพนักงาน
         print("Update datalist...")
-        clearScreen(3)
-        textEnd("Update datalist...", 3, 1)
+        textEnd(3, "Update datalist...")
         get_data = service.spreadsheets().values().get(
             spreadsheetId=DATABASE_SHEETID, range=DATABASE_USER_RANGE).execute()
         data_list = get_data["values"]
@@ -210,13 +209,11 @@ def update_user_data():
 
         write_json(SETTING_JSON_DIR, setting_jsonData)
         print("<<< update success >>>", end='\n\n')
-        clearScreen(3)
-        textEnd("Success", 3, 6)
+        textEnd(3, "Success")
 
     except Exception as e:
         print(f"<<update user data error>> \n {e} \n")
-        clearScreen(3)
-        textEnd("Failed", 3, 6)
+        textEnd(3, "Failed")
 
 # ลงชื่อเข้าใช้งาน
 def login():
@@ -293,9 +290,7 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         Today = now.strftime("%d/%m/%Y")  # วันที่
         Time = now.strftime("%H:%M:%S")  # เวลา
 
-        clearScreen(1)
-        lcd.cursor_pos = (1, 4)
-        lcd.write_string("<< Ready >>")
+        printScreen(1, "<< Ready >>")
         print(str(date_time))
         print("READY:", TABLET_ID)
         sleep(5)
@@ -317,8 +312,7 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         dataWeight.append(weight)
         print(len(dataWeight),".) ",weight)
         
-        lcd.cursor_pos = (1, 4)
-        lcd.write_string("  Wait.... ")
+        printScreen(1, "Wait.... ")
         
         for i in dataWeight:
             if len(dataWeight) == 1:
@@ -336,9 +330,8 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         # รีเซ็ตโปรแกรม
         if weight < 0.005:
             lcd.clear()
-            lcd.cursor_pos = (0, 3)
-            lcd.write_string("WEIGHT VARIATION")
-            textEnd("Restart.....", 1, 5)
+            printScreen(0, "WEIGHT VARIATION")
+            textEnd(1, "Restart.....")
             print("Reset!")
             quit()
 
@@ -363,6 +356,7 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
 
             # Timestamp dataWeight
             dataWeight.insert(0, Time)
+            sleep(1)
             return weight_obj
         else:
             pass
@@ -375,9 +369,8 @@ def weightSummary(Min_W, Max_W, AVG_W, status):
     lcd.clear()
     printScreen(0, "WEIGHT VARIATION")
     printScreen(1, f"<< {status} >>")
-    textEnd("MIN:"+str('%.3f' % Min_W), 2, 0)
-    textEnd("MAX:"+str('%.3f' % Max_W), 2, 11)
-    textEnd("AVG:"+str('%.3f' % AVG_W), 3, 6)
+    textEnd(2, "MIN:"+ str('%.3f' % Min_W) + "  " + "MAX:" + str('%.3f' % Max_W))
+    textEnd(3, "AVG:"+str('%.3f' % AVG_W))
     sleep(5)
 
 # โปรแกรมหลัก
@@ -390,8 +383,8 @@ def main():
     led3.blink()
     print("WEIGHT VARIATION")
     print("Loading....")
-    textEnd("WEIGHT VARIATION", 0, 2)
-    textEnd("Loading....", 1, 5)
+    textEnd(0, "WEIGHT VARIATION")
+    textEnd(1, "Loading....")
 
     # ตรวจสอบการเชื่อมต่อกับเซิฟเวอร์ของ google
     global service
@@ -432,13 +425,10 @@ def main():
                 Max = float(setting_data["max"])
                 Min_DVT = float(setting_data["min_control"])
                 Max_DVT = float(setting_data["max_control"])
-            else:
-                Min = 0
-                Max =  0
-                Min_DVT = 0
-                Max_DVT = 0
             
-            weight = getWeight(Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง              
+                weight = getWeight(Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+            else:
+                weight = getWeight()              
 
             # สร้างข้อมูลเตรียมส่งบันทึก
             packetdata_arr = [
@@ -453,6 +443,7 @@ def main():
             ]
 
             packetdata_arr.extend(["-"] * 11) # เพิ่ม - เข้า packetdata_arr 11 ตัว
+            printScreen(1, "Sending data...")
             checkData_offline() # ตรวจสอบและส่งข้อมูล offline
             status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
 
@@ -461,10 +452,10 @@ def main():
                 update_json(OFFLINE_JSON_DIR, packetdata_arr[0:8]) # บันทึกข้อมูล 1-7 ไปยัง offline.json 
 
             # ค่า min,max,avg ของน้ำหนักที่ชั่ง
-            weight = [float(weight["weight1"]), float(weight["weight2"])]
-            Min_W = min(weight)
-            Max_W = max(weight)
-            AVG_W = round(sum(weight)/len(weight), 3)
+            weight_cache = [float(weight["weight1"]), float(weight["weight2"])]
+            Min_W = min(weight_cache)
+            Max_W = max(weight_cache)
+            AVG_W = round(sum(weight_cache)/len(weight_cache), 3)
 
             weightSummary(Min_W, Max_W, AVG_W, packetdata_arr[1])
             logout() # ออกจากระบบ
@@ -475,28 +466,24 @@ def main():
                     led1.blink()
                     led2.off()
                     led3.off()
-                    clearScreen(1)
-                    textEnd("Very Good", 1, 5)
+                    textEnd(1, "<<Very Good>>")
 
                 elif AVG_W >= Min_DVT and AVG_W <= Max_DVT:
                     led1.off()
                     led2.blink()
                     led3.off()
-                    clearScreen(1)
-                    textEnd("Failed!", 1, 6)
+                    textEnd(1, "<<Failed!>>")
 
                 else:
                     led1.off()
                     led2.off()
                     led3.blink()
-                    clearScreen(1)
-                    textEnd("Failed!", 1, 6)
-                    # write Remark
+                    textEnd(1, "<<Failed!>>")
 
-                    meseage = "ค่าเฉลี่ย "+str('%.3f' % AVG_W)+" g."+\
-                        '\n\r'+"ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด("+str('%.3f' % Min_DVT)+\
-                        "g. - "+str('%.3f' % Max_DVT)+"g.)"
-
+                    meseage = 'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+\
+                        '\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด('+str('%.3f' % Min_DVT)+\
+                        'g. - '+str('%.3f' % Max_DVT)+'g.)'
+                    
                     # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
                     sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[weight["time"], meseage]])
     
@@ -510,7 +497,7 @@ def main():
                         '('+str('%.3f' % Min_DVT)+'g. - '+str('%.3f' % Max_DVT) + 'g.)'
                     
                     # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                    lineNotify(meseage_alert)
+                    # lineNotify(meseage_alert)
                 
     except Exception as e:
         print(f"<<main error>> \n {e} \n")
