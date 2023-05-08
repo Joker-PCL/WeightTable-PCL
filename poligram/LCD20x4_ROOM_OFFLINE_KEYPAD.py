@@ -161,9 +161,9 @@ def checkData_offline():
                 write_json(OFFLINE_JSON_DIR, {"DATA": []})
                 print("<<< send data success >>>", end='\n\n')
 
-                textEnd(3, "Success")
+                textEnd(3, "<<Success>>")
             else:
-                textEnd(3, "Failed")
+                textEnd(3, "<<Failed!>>")
 
         except Exception as e:
             print(f"\n<< checkData offline >> \n {e} \n")
@@ -213,7 +213,7 @@ def update_user_data():
 
     except Exception as e:
         print(f"<<update user data error>> \n {e} \n")
-        textEnd(3, "Failed")
+        textEnd(3, "<<Failed!>>")
 
 # ลงชื่อเข้าใช้งาน
 def login():
