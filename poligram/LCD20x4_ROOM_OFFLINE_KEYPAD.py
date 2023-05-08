@@ -321,11 +321,6 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
             else: 
                 lcd.cursor_pos = (3, 11)
             lcd.write_string((str(len(dataWeight)))+".) "+str('%.3f' % weight))
-            
-        led1.off()
-        led2.off()
-        led3.off()
-        sleep(0.5)
 
         # รีเซ็ตโปรแกรม
         if weight < 0.005:
@@ -359,7 +354,10 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
             sleep(1)
             return weight_obj
         else:
-            pass
+            sleep(1)
+            led1.off()
+            led2.off()
+            led3.off()
 
 # สรุปผล
 def weightSummary(Min_W, Max_W, AVG_W, status):
