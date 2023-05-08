@@ -295,6 +295,10 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         print("READY:", TABLET_ID)
         sleep(5)
         
+        led1.off()
+        led2.off()
+        led3.off()
+        
         # อ่านค่าจาก port rs232
         # w = sr.readline()
         # w = random(0.155, 0.165)
@@ -355,9 +359,6 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
             return weight_obj
         else:
             sleep(1)
-            led1.off()
-            led2.off()
-            led3.off()
 
 # สรุปผล
 def weightSummary(Min_W, Max_W, AVG_W, status):
