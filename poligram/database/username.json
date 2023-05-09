@@ -1,5 +1,13 @@
 {
-    "LOGIN": {
+    "LOGIN_IPC": {
+        "rfid": null,
+        "employeeID": null,
+        "nameTH": null,
+        "nameEN": null,
+        "password": null,
+        "root": null
+    },
+    "LOGIN_ROOM": {
         "rfid": null,
         "employeeID": null,
         "nameTH": null,

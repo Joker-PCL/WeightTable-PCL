@@ -1,0 +1,22 @@
+{
+    "SETTING": [
+        {
+            "current_range": "J19:K68",
+            "tabletID": "11",
+            "scaleID": "PI-216",
+            "productName": "Alprazolam 0.25",
+            "pastle": "15",
+            "Lot": "123456",
+            "number_tablets,": "30",
+            "weight_control,": "9.000",
+            "percent": "10.00%",
+            "min": "11.000",
+            "max": "12.000",
+            "min_control": "15.000",
+            "max_control": "16.000",
+            "min_dvt": "13.000",
+            "max_dvt": "14.000",
+            "admin_set": "ผู้ดูแลระบบ"
+        }
+    ]
+}

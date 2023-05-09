@@ -8,8 +8,8 @@ from google.auth.transport.requests import Request
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
-credentials_path = 'D:\\Project VS Code\\GitHub\\WeightTable-PCL\\poligram\\database\\client_secret.json'
-script_id = 'AKfycby7SQq5nAAmokrkEuAjt8ewn0F6RGMhvtTSYPfp-bZFfy_uFmuiI2oIfiAAb6kfGO7C'
+credentials_path = 'D:\\Project VS Code\\GitHub\\WeightTable-PCL\\poligram\\database\\credentials.json'
+script_id = 'AKfycbz3ewnHJMnv7NU_714IF5D_kFf-M0a6ZRKM3snDWDSTiNPor925JhtrQ3lYI-UZEmFi'
 
 
 def main():

@@ -1,43 +1,103 @@
-## ============================================================================##
-##                              Dev.  Nattapon                                 ##
-##                       Program Author and Designer                           ##
-## ============================================================================##
-## ต้องใช้คำสั่ง sudo su pip install google-api-python-client 
-# update 16/7/2022  ส่งเวลา และวันที่ อัตโนมัติ
-#                   ส่งเวลา Range ที่จะลงข้อมูลครั้งถัดไป,ส่งไลน์แจ้งเตือนเมื่อน้ำหนักไม่ได้อยู่ในช่วง
+##============================================================================##
+##                              Dev.  Nattapon                                ##
+##                       Program Author and Designer                          ##
+##============================================================================##
+# update 23/6/2022 ส่งเวลา และวันที่ อัตโนมัติ
+# update 27/6/2022 แก้ระบบ Login ระบบตรวจสอบการส่งข้อมูล ส่งไลน์แจ้งเตือนเมื่อน้ำหนักไม่ได้อยู่ในช่วง
+#                  หรือโปรแกรม Error
 # update 08/1/2023  เพิ่มการบันทึกข้อมูลแบบ offline กรณีไม่สามารถเชื่อมต่อ internet ได้
 #                   โดยไฟล์จะบันทึกไว้ใน json_dir = "/home/pi/Json_offline/data_offline.json"
 
+import json
+import random
 
+# from __future__ import print_function
 import pickle
 import os.path
+import requests
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from googleapiclient import errors
 
-import random
 import serial
 from datetime import datetime
-from time import sleep
-import requests
+from time import time, sleep
 
-import keyboard
-import json
-
-# Libary LCD20x4
 from RPLCD import *
 from RPLCD.i2c import CharLCD
+from gpiozero import LED, Buzzer
+import RPi.GPIO as GPIO
 
-# Libary LED
-from gpiozero import LED
+buzzer = Buzzer(12)
 
-# ประกาศตัวแปล จอLCD
 lcd = CharLCD('PCF8574', 0x27)  # address lcd 20x4
+led1 = LED(27)  # red
+led2 = LED(22)  # yellow
+led3 = LED(23)  # green
 
-# ประกาศตัวแปล LED
-led1 = LED(24)
-led2 = LED(23)
-led3 = LED(22)
+# LED Dotmatrix
+from luma.led_matrix.device import max7219
+from luma.core.interface.serial import spi, noop
+from luma.core.render import canvas
+from luma.core.legacy import text, show_message
+from luma.core.legacy.font import proportional, TINY_FONT
+
+serialSCR = spi(port=0, device=0, gpio=noop())
+led_scr = max7219(serialSCR, cascaded=4, block_orientation=90, blocks_arranged_in_reverse_order=True)
+led_scr.contrast(10)
+
+led_passed = [0xf8, 0x58, 0x40, 0xfb,
+          0x00, 0x08, 0x08, 0xf8,
+          0x00, 0x18, 0xf8, 0x40,
+          0xf8, 0xc0, 0x00, 0x00
+        ]
+
+led_notpass = [0x02, 0x04, 0xfe,0xc0,
+           0x00, 0xd8, 0xf8, 0x40,
+           0xfb, 0x00, 0xf8, 0x58,
+           0x40, 0xfb, 0x00, 0x08,
+           0x08, 0xf8, 0x00, 0x18,
+           0xf8, 0x40, 0xf8, 0xc0
+        ]
+    
+led_online = [0x7c, 0x44, 0x7c, 0x00, 
+          0x7c, 0x08, 0x04, 0x7c, 
+          0x00, 0x7c, 0x40, 0x40, 
+          0x00, 0x44, 0x7c, 0x44, 
+          0x00, 0x7c, 0x08, 0x04, 
+          0x7c, 0x00, 0x7c, 0x54, 
+          0x54, 0x00, 0x00, 0x00
+        ]
+
+led_online_th = [0x74, 0x54, 0x44, 0x7c, 
+          0x00, 0x74, 0x54, 0x44, 
+          0x7c, 0x00, 0x04, 0x7c, 
+          0x20, 0x7c, 0x61, 0x02, 
+          0x7f, 0x40, 0x00, 0x74, 
+          0x54, 0x14, 0x7c, 0x00, 
+          0x04, 0x7c, 0x20, 0x7d, 
+          0x61, 0x00, 0x00, 0x00
+        ]
+
+led_offline = [0x7c, 0x44, 0x7c, 0x00, 
+          0x7c, 0x14, 0x14, 0x00, 
+          0x7c, 0x14, 0x14, 0x00, 
+          0x7c, 0x40, 0x40, 0x00, 
+          0x44, 0x7c, 0x44, 0x00, 
+          0x7c, 0x08, 0x04, 0x7c, 
+          0x00, 0x7c, 0x54, 0x54
+        ]
+
+led_offline_th = [0x74, 0x54, 0x44, 0x7c, 
+          0x00, 0x74, 0x54, 0x44, 
+          0x7c, 0x00, 0x04, 0x7c, 
+          0x20, 0x20, 0x7f, 0x00, 
+          0x01, 0x02, 0x7f, 0x40, 
+          0x00, 0x74, 0x54, 0x14, 
+          0x7c, 0x00, 0x04, 0x7c, 
+          0x20, 0x7d, 0x61, 0x00
+        ]
 
 # ตั้งค่า
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -47,15 +107,179 @@ TOKEN_DIR = '/home/pi/Desktop/poligram/token.pickle'
 DATABASE_SHEETID = "1MLEcT9m76IOQVHOmwQJCfAhPi6KbjiYI7d5SBp2nbWs"
 DATABASE_USER_RANGE = "User_Password!A3:F"
 DATABASE_JSON_DIR = '/home/pi/Desktop/poligram/database/username.json'
-SETTING_JSON_DIR = '/home/pi/Desktop/poligram/database/setting_room.json'
-OFFLINE_JSON_DIR = '/home/pi/Desktop/poligram/database/offline_room.json'
+SETTING_JSON_DIR = '/home/pi/Desktop/poligram/database/setting_ipc.json'
+OFFLINE_JSON_DIR = '/home/pi/Desktop/poligram/database/offline_ipc.json'
 
-WEIGHTTABLE_SHEETID = "1Vfy1ovKCEVWl9X3cO-M4AV9IzOmuK467IeMWragfq-o"
-WEIGHTTABLE_SETTING_RANGE = "Setting!A2:A14"
-WEIGHTTABLE_DATA_RANGE = "WEIGHT!A5:S"
+WEIGHTTABLE_SETTING_RANGE = "Setting!A3:A18"
+WEIGHTTABLE_DATA_NAME = "Weight Variation!"
 WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
+CURRENT_DATA_RANGE = "Setting!A3"
 
-TABLET_ID = 'T15'
+# ข้อมูล SHEETID ของ google sheet
+TABLET_LIST = [
+    {
+        "TABLET_ID": "11" ,
+        "SHEETID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
+        "SCRIPT_ID": "AKfycbz3ewnHJMnv7NU_714IF5D_kFf-M0a6ZRKM3snDWDSTiNPor925JhtrQ3lYI-UZEmFi"
+    },
+    {
+        "TABLET_ID": "15" ,
+        "SHEETID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
+        "SCRIPT_ID": "AKfycbz3ewnHJMnv7NU_714IF5D_kFf-M0a6ZRKM3snDWDSTiNPor925JhtrQ3lYI-UZEmFi"
+    }
+]
+
+# ตำแหน่งการบันทึกข้อมูล
+RANGE_LIST = [
+    {
+        "data_range": "A19:B68",
+        "timestamp": "A17",
+        "signature": "B76"
+    },
+    {
+        "data_range": "D19:E68",
+        "timestamp": "D17",
+        "signature": "E76"
+    },
+    {
+        "data_range": "G19:H68",
+        "timestamp": "G17",
+        "signature": "H76"
+    },
+    {
+        "data_range": "J19:K68",
+        "timestamp": "J17",
+        "signature": "K76"
+    }
+]
+
+keypad_rows = [26, 16, 20, 21]
+keypad_cols = [5, 6, 13, 19]
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+
+for i in range(len(keypad_rows)):
+    GPIO.setup(keypad_rows[i], GPIO.OUT)
+    GPIO.setup(keypad_cols[i], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+keypad = [["1", "2", "3", "A"],
+          ["4", "5", "6", "B"],
+          ["7", "8", "9", "C"],
+          ["", "0", "", "D"]]
+
+# แสดงข้อความ dot matrix
+def dotmatrix(draw, xy, txt, fill=None):
+    x, y = xy
+    for byte in txt:
+        for j in range(8):
+            if byte & 0x01 > 0:
+                draw.point((x, y + j), fill=fill)
+
+            byte >>= 1
+        x += 1
+
+# อ่านค่า KEYPAD 4x4
+def readKeypad():
+    currentMillis = 0
+    previousMillis = 0
+    Timer = 60  # settimeout sec.
+    keypad_cache = ""
+
+    while Timer:
+        for i in range(len(keypad_rows)):
+            gpio_out = keypad_rows[i]
+            GPIO.output(gpio_out, GPIO.HIGH)
+
+            for x in range(len(keypad_cols)):
+                gpio_in = keypad_cols[x]
+                # on GPIO checkkey 
+                if (GPIO.input(gpio_in) == 1):
+                    buzzer.beep(0.1, 0.1, 1)
+                    key = keypad[i][x]
+
+                    if key == "D" and keypad_cache:
+                        keypad_cache = keypad_cache[0:-1] # ลบ
+                    elif key != "A" and key != "B" and key != "C" and key != "D":
+                        keypad_cache = keypad_cache+key
+                    elif key == "C" and keypad_cache:
+                        return keypad_cache
+                    else:
+                        pass
+
+                    text = keypad_cache
+                    text.ljust(10-len(text))
+                    lcd.cursor_pos = (2, 10)
+                    lcd.write_string(text)
+                    sleep(0.3)
+
+            # off GPIO checkkey            
+            GPIO.output(gpio_out, GPIO.LOW)
+
+        # จับเวลา
+        currentMillis = time()
+        if currentMillis - previousMillis > 1:
+            previousMillis = currentMillis
+            Timeout = str(Timer)+"s"
+            if Timer < 10:
+                Timeout  = " "+str(Timer)+"s"
+            lcd.cursor_pos = (2, int((20-len(Timeout))/2))
+            lcd.write_string(Timeout)
+            Timer -= 1
+            # timeout
+            if not Timer:
+                quit()
+
+# ตรวจสอบ ID Sheets
+def checkSheetID(TABLET_ID):
+    result = list(filter(lambda item: (item['TABLET_ID']) == TABLET_ID, TABLET_LIST))
+    if(result):
+        return result[0]
+    else:
+        return False
+
+# ส่งตำแหน่งที่จะพิมพ์ในครั้งถัดไป
+def nextRange(RangeName):
+    current_range = next((i for i, item in enumerate(RANGE_LIST) if item['data_range'] == RangeName), None)
+    next_range = RANGE_LIST[(current_range + 1) % len(RANGE_LIST)] if current_range is not None else None
+    return next_range
+
+# แสดงผลค่าน้ำหนัก
+def screen(total_weight, weight):
+    for i in range(0, 50, 6):
+        if len(total_weight) == i+1:
+            lcd.clear()
+            lcd.cursor_pos = (1, 0)
+            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            print(str(len(total_weight))+")"+str(weight))
+            break
+        if len(total_weight) == i+2:
+            lcd.cursor_pos = (2, 0)
+            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            print(str(len(total_weight))+")"+str(weight))
+            break
+        if len(total_weight) == i+3:
+            lcd.cursor_pos = (3, 0)
+            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            print(str(len(total_weight))+")"+str(weight))
+            break
+        if len(total_weight) == i+4:
+            lcd.cursor_pos = (1, 12)
+            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            print(str(len(total_weight))+")"+str(weight))
+            break
+        if len(total_weight) == i+5:
+            lcd.cursor_pos = (2, 12)
+            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            print(str(len(total_weight))+")"+str(weight))
+            break
+        if len(total_weight) == i+6:
+            lcd.cursor_pos = (3, 12)
+            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            print(str(len(total_weight))+")"+str(weight))
+            break
+        else:
+            continue
 
 # แสดงผลหน้าจอ
 def printScreen(row, text):
@@ -106,6 +330,8 @@ def update_json(dir, jsonData):
 
 # ตรวจสอบการเชื่อมต่อกับเซิฟเวอร์ของ google
 def firtconnect():
+    global service
+    global service_script
     try:
         creds = None
         if os.path.exists(TOKEN_DIR):
@@ -124,7 +350,8 @@ def firtconnect():
                 pickle.dump(creds, token)
 
         service = build('sheets', 'v4', credentials=creds)
-        return service
+        service_script = build('script', 'v1', credentials=creds)
+        return True
 
     except Exception as e:
         print(f"<<First connect error>> \n {e} \n")
@@ -133,41 +360,73 @@ def firtconnect():
 # ตรวจสอบข้อมูล offline
 def checkData_offline():
     offline_data = read_json(OFFLINE_JSON_DIR)
-    if offline_data["DATA"]:
-        dataArr = []
-        for data in offline_data["DATA"]:
-            data.extend(["-"] * 11) # เพิ่ม - ไปอีก 11 ตัว
-            dataArr.append(data)
+    offline_data = offline_data["DATA"]
+
+    if offline_data:
+        deleted_cache = []  # สร้างลิสต์ที่จะเก็บ _data ที่จะลบออก
+        tabletName_cache = [] # สร้างรายชื่อเครื่องตอกที่ถูกส่งข้อมูล offline
+        Timestamp_offline = offline_data[0]["TIMESTAMP"]
+
         try: 
-            print("Sending data offline...")
-            textEnd(3, "Sending data..")
-            status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, dataArr)
+            for _data in offline_data:
+                print("Sending data offline...")
+                textEnd(3, "Sending data..")
+                WEIGHTTABLE_SHEETID = checkSheetID(_data["TABLET_ID"]) # หาข้อมูลจากเลขเครื่องตอก
+                SHEETID = WEIGHTTABLE_SHEETID["SHEETID"]
+                CURRENT_RANGE = getData_sheets(SHEETID, WEIGHTTABLE_SETTING_RANGE)
+                NEXT_RANGE = nextRange(CURRENT_RANGE[0][0])
 
-            Timestamp_offline = offline_data["DATA"][0][0]
+                updateDATA_sheets(SHEETID, CURRENT_DATA_RANGE, NEXT_RANGE["data_range"])
+                updateDATA_sheets(SHEETID, WEIGHTTABLE_DATA_NAME+NEXT_RANGE["timestamp"],  _data["TIMESTAMP"])
+                updateDATA_sheets(SHEETID, WEIGHTTABLE_DATA_NAME+NEXT_RANGE["signature"], _data["SIGNATURE"])
+                sendData_sheets(SHEETID, WEIGHTTABLE_DATA_NAME+NEXT_RANGE["data_range"], _data["WEIGHT"])
 
-            if status:      
+                tabletName_cache.append(_data["TABLET_ID"])
+                deleted_cache.append(_data) # เก็บ _data ไว้ในลิสต์ที่จะลบ
+
+                # เช็คข้อมูลว่าเต็มแผ่นงานหรือไม่
+                if RANGE_LIST[-1]["data_range"] == NEXT_RANGE["data_range"]:
+                    newSheet(WEIGHTTABLE_SHEETID["SCRIPT_ID"]) # สร้าง sheet ไหม่,เคลียร์ sheet
+
+        
+            if deleted_cache:
+                # ลบ _data ที่ถูกเก็บไว้ในลิสต์ to_be_deleted ออกจาก offline_data
+                for _data in deleted_cache:
+                    offline_data.remove(_data)
+                write_json(OFFLINE_JSON_DIR, {"DATA": offline_data})   
+
+                tablet_msg = ', '.join(['T' + str(num) for num in tabletName_cache]) # รายชื่อเครื่องตอกที่ถูกส่งข้อมูล offline     
                 msg_Notify = '\n🔰 มีข้อมูล offline เพิ่มเข้ามาไหม่ \n' +\
-                    '🔰 ระบบเครื่องชั่ง 10 เม็ด \n' +\
-                    '🔰 เครื่องตอก: '+ TABLET_ID + '\n' +\
+                    '🔰 ระบบเครื่องชั่ง IPC \n' +\
+                    '🔰 เครื่องตอก: '+ tablet_msg + '\n' +\
                     '❎ ขาดการเชื่อมต่อ \n  ' +\
                     Timestamp_offline + '\n' +\
                     '✅ เชื่อมต่ออีกครั้ง \n  ' +\
                     datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                
+                    
                 # ส่งไลน์แจ้งเตือน
                 lineNotify(msg_Notify)
 
-                # ล้างข้อมูล JSON
-                write_json(OFFLINE_JSON_DIR, {"DATA": []})
                 print("<<< send data success >>>", end='\n\n')
-
                 textEnd(3, "<<Success>>")
-            else:
-                textEnd(3, "<<Failed!>>")
 
         except Exception as e:
-            print(f"\n<< checkData offline >> \n {e} \n")
-            
+                print(f"\n<< checkData offline >> \n {e} \n")    
+                textEnd(3, "<<Failed!>>")
+
+# สร้าง sheet ไหม่,เคลียร์ sheet โดยการรัน script ของ google appscript
+def newSheet(script_id):
+    try:
+        request = {
+            'function': "duplicate",
+            'parameters': [],
+            'devMode': True
+        }
+        response = service_script.scripts().run(body=request, scriptId=script_id).execute()
+        print(response)
+    except errors.HttpError as error:
+        print(error.content)
+
 # อัพเดทฐานข้อมูลผู้ใช้งาน
 def update_user_data():
     try:
@@ -194,26 +453,66 @@ def update_user_data():
         jsonData["DATA"] = data_dict
         write_json(DATABASE_JSON_DIR, jsonData)
 
-        # อัพเดทการตั้งค่าน้ำหนัก
-        print("Update Setting datalist...")
-        get_setting_data = service.spreadsheets().values().get(
-            spreadsheetId=WEIGHTTABLE_SHEETID, range=WEIGHTTABLE_SETTING_RANGE).execute()
-        setting_data_list = get_setting_data["values"]
-
-        setting_jsonData = read_json(SETTING_JSON_DIR)
-        
-        index = 0
-        for data in setting_jsonData:
-            setting_jsonData[data] = setting_data_list[index][0]
-            index += 1
-
-        write_json(SETTING_JSON_DIR, setting_jsonData)
         print("<<< update success >>>", end='\n\n')
         textEnd(3, "Success")
 
     except Exception as e:
         print(f"<<update user data error>> \n {e} \n")
         textEnd(3, "<<Failed!>>")
+
+# อัพเดทฐานข้อมูลการตั้งค่า
+def update_setting_data():
+    WEIGHTTABLE_SHEETID = checkSheetID(tabletID) # หาข้อมูลจากเลขเครื่องตอก
+    SHEETID = WEIGHTTABLE_SHEETID["SHEETID"]
+    try:
+        # อัพเดทการตั้งค่าน้ำหนัก
+        print("Update Setting datalist...")
+        get_setting_data = service.spreadsheets().values().get(
+            spreadsheetId=SHEETID, range=WEIGHTTABLE_SETTING_RANGE).execute()
+        setting_data_list = get_setting_data["values"]
+
+        setting_jsonData = read_json(SETTING_JSON_DIR)
+        
+        # ตรวจหาข้อมูล
+        matching_tablet = next((item for item in setting_jsonData['SETTING'] if item['tabletID'] == str(tabletID)), None)
+
+        # ตรวจสอบผลลัพธ์
+        if matching_tablet is not None:
+            for index, data in enumerate(matching_tablet):
+                matching_tablet[data] = setting_data_list[index][0]
+        else:
+            setting_key = { 
+                "current_range": None,
+                "tabletID": None,
+                "scaleID": None,
+                "productName": None,
+                "pastle": None,
+                "Lot": None,
+                "number_tablets,": None,
+                "weight_control,": None,
+                "percent": None,
+                "min": None,
+                "max": None,
+                "min_control": None,
+                "max_control": None,
+                "min_dvt": None,
+                "max_dvt": None,
+                "admin_set": None
+            }
+            
+            for index, key in enumerate(setting_key):
+                setting_key[key] = setting_data_list[index][0]
+
+            setting_jsonData["SETTING"].append(setting_key)
+
+        print(setting_jsonData)
+        write_json(SETTING_JSON_DIR, setting_jsonData)
+        print("<<< update success >>>", end='\n\n')
+        # textEnd(3, "Success")
+
+    except Exception as e:
+        print(f"<<update user data error>> \n {e} \n")
+        # textEnd(3, "<<Failed!>>")
 
 # ลงชื่อเข้าใช้งาน
 def login():
@@ -232,8 +531,8 @@ def login():
             result = list(filter(lambda item: (
                         item['rfid']) == id, jsonData["DATA"]))
             if result:
-                for key in jsonData["LOGIN_ROOM"]:
-                    jsonData["LOGIN_ROOM"][key] = result[0][key]
+                for key in jsonData["LOGIN_IPC"]:
+                    jsonData["LOGIN_IPC"][key] = result[0][key]
 
                 write_json(DATABASE_JSON_DIR, jsonData)
                 printScreen(3, result[0]["nameEN"] + " " + TABLET_ID)
@@ -252,13 +551,36 @@ def login():
 def logout():
     jsonData = read_json(DATABASE_JSON_DIR)
 
-    for key in jsonData["LOGIN_ROOM"]:
-        jsonData["LOGIN_ROOM"][key] = None
+    for key in jsonData["LOGIN_IPC"]:
+        jsonData["LOGIN_IPC"][key] = None
 
     write_json(DATABASE_JSON_DIR, jsonData)
 
+# function update Data from googlesheets
+def updateDATA_sheets(SHEETID, RANGE, DATA):
+    try:
+        request = service.spreadsheets().values().update(
+                spreadsheetId = SHEETID,
+                range = RANGE, 
+                valueInputOption = "RAW",  
+                body = {"values": [[DATA]]}
+            ).execute()
+        
+        return request
+    except Exception as e:
+            print(f"\n<<update data sheets error>> \n {e} \n")
+            return False
+    
+# function Get Data from googlesheets
+def getData_sheets(SHEETID, RANGE):
+    get_data = service.spreadsheets().values().get(
+        spreadsheetId=SHEETID, range=RANGE).execute()
+    data_list = get_data["values"]
+    
+    return data_list
+
 # function Send Data to googlesheets
-def sendData_sheets(sheetRange, dataArr):
+def sendData_sheets(WEIGHTTABLE_SHEETID, sheetRange, dataArr):
     try:
         response = service.spreadsheets().values().append(
             spreadsheetId=WEIGHTTABLE_SHEETID,
@@ -360,18 +682,6 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         else:
             sleep(1)
 
-# สรุปผล
-def weightSummary(Min_W, Max_W, AVG_W, status):
-    if status == "OFFLINE":
-        led3.blink()
-
-    lcd.clear()
-    printScreen(0, "WEIGHT VARIATION")
-    printScreen(1, f"<< {status} >>")
-    textEnd(2, "MIN:"+ str('%.3f' % Min_W) + "  " + "MAX:" + str('%.3f' % Max_W))
-    textEnd(3, "AVG:"+str('%.3f' % AVG_W))
-    sleep(5)
-
 # โปรแกรมหลัก
 def main():
     lcd.clear()
@@ -386,8 +696,7 @@ def main():
     textEnd(1, "Loading....")
 
     # ตรวจสอบการเชื่อมต่อกับเซิฟเวอร์ของ google
-    global service
-    service = firtconnect()
+    firtconnect()
     
     # ตรวจสอบข้อมูล OFFLINE
     printScreen(1, "CHECK DATA OFFLINE")
@@ -414,6 +723,8 @@ def main():
             nameTH = result["nameTH"]
             password = result["password"]
             root = result["root"]
+            
+            # ป้อนหมายเลขเครื่องตอก
 
             setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
             
@@ -501,4 +812,5 @@ def main():
         print(f"<<main error>> \n {e} \n")
 
 if __name__ == '__main__':
-    main()
+    # main()
+    update_setting_data()
