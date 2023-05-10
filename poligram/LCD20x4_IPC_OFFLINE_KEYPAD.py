@@ -119,12 +119,12 @@ CURRENT_DATA_RANGE = "Setting!A3"
 TABLET_LIST = [
     {
         "TABLET_ID": "11" ,
-        "SHEETID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
+        "SHEET_ID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
         "SCRIPT_ID": "AKfycbz3ewnHJMnv7NU_714IF5D_kFf-M0a6ZRKM3snDWDSTiNPor925JhtrQ3lYI-UZEmFi"
     },
     {
         "TABLET_ID": "15" ,
-        "SHEETID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
+        "SHEET_ID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
         "SCRIPT_ID": "AKfycbz3ewnHJMnv7NU_714IF5D_kFf-M0a6ZRKM3snDWDSTiNPor925JhtrQ3lYI-UZEmFi"
     }
 ]
@@ -180,7 +180,7 @@ def dotmatrix(draw, xy, txt, fill=None):
         x += 1
 
 # อ่านค่า KEYPAD 4x4
-def readKeypad():
+def readKeypad(Message):
     currentMillis = 0
     previousMillis = 0
     Timer = 60  # settimeout sec.
@@ -207,9 +207,9 @@ def readKeypad():
                     else:
                         pass
 
-                    text = keypad_cache
-                    text.ljust(10-len(text))
-                    lcd.cursor_pos = (2, 10)
+                    text = f"{Message}: {keypad_cache}"
+                    text.ljust(20-len(text))
+                    lcd.cursor_pos = (3, 0)
                     lcd.write_string(text)
                     sleep(0.3)
 
@@ -220,11 +220,10 @@ def readKeypad():
         currentMillis = time()
         if currentMillis - previousMillis > 1:
             previousMillis = currentMillis
-            Timeout = str(Timer)+"s"
+            Timer
             if Timer < 10:
-                Timeout  = " "+str(Timer)+"s"
-            lcd.cursor_pos = (2, int((20-len(Timeout))/2))
-            lcd.write_string(Timeout)
+                Timeout  = str(Timer).ljust(1)
+            printScreen(2, f"{Timeout}s.")
             Timer -= 1
             # timeout
             if not Timer:
@@ -251,32 +250,26 @@ def screen(total_weight, weight):
             lcd.clear()
             lcd.cursor_pos = (1, 0)
             lcd.write_string(str(len(total_weight))+")"+str(weight))
-            print(str(len(total_weight))+")"+str(weight))
             break
-        if len(total_weight) == i+2:
+        elif len(total_weight) == i+2:
             lcd.cursor_pos = (2, 0)
             lcd.write_string(str(len(total_weight))+")"+str(weight))
-            print(str(len(total_weight))+")"+str(weight))
             break
-        if len(total_weight) == i+3:
+        elif len(total_weight) == i+3:
             lcd.cursor_pos = (3, 0)
             lcd.write_string(str(len(total_weight))+")"+str(weight))
-            print(str(len(total_weight))+")"+str(weight))
             break
-        if len(total_weight) == i+4:
+        elif len(total_weight) == i+4:
             lcd.cursor_pos = (1, 12)
             lcd.write_string(str(len(total_weight))+")"+str(weight))
-            print(str(len(total_weight))+")"+str(weight))
             break
-        if len(total_weight) == i+5:
+        elif len(total_weight) == i+5:
             lcd.cursor_pos = (2, 12)
             lcd.write_string(str(len(total_weight))+")"+str(weight))
-            print(str(len(total_weight))+")"+str(weight))
             break
-        if len(total_weight) == i+6:
+        elif len(total_weight) == i+6:
             lcd.cursor_pos = (3, 12)
             lcd.write_string(str(len(total_weight))+")"+str(weight))
-            print(str(len(total_weight))+")"+str(weight))
             break
         else:
             continue
@@ -304,7 +297,7 @@ def clearScreen(row, col=0, numcol=20):
 # ส่งไลน์แจ้งเตือน
 def lineNotify(msg):
     url = 'https://notify-api.line.me/api/notify'
-    token = 'p9YWBiZrsUAk7Ef9d0hLTMMF2CxIaTnRopHaGcosM4q'
+    token = 'XGeivDcekfbgCYH9eNi2rCbDU9jSpktLm6FZsAcTLs0'
     headers = {'content-type': 'application/x-www-form-urlencoded',
                'Authorization': 'Bearer '+token}
     requests.post(url, headers=headers, data={'message': msg})
@@ -332,6 +325,7 @@ def update_json(dir, jsonData):
 def firtconnect():
     global service
     global service_script
+
     try:
         creds = None
         if os.path.exists(TOKEN_DIR):
@@ -370,24 +364,34 @@ def checkData_offline():
         try: 
             for _data in offline_data:
                 print("Sending data offline...")
-                textEnd(3, "Sending data..")
-                WEIGHTTABLE_SHEETID = checkSheetID(_data["TABLET_ID"]) # หาข้อมูลจากเลขเครื่องตอก
-                SHEETID = WEIGHTTABLE_SHEETID["SHEETID"]
-                CURRENT_RANGE = getData_sheets(SHEETID, WEIGHTTABLE_SETTING_RANGE)
-                NEXT_RANGE = nextRange(CURRENT_RANGE[0][0])
+                textEnd(3, "Sending data...")
+                WEIGHTTABLE_SHEETID = checkSheetID(_data["TABLET_ID"])  # หาข้อมูลจากเลขเครื่องตอก
+                SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
+                SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SCRIPT ID
+                SHEET_NAME = WEIGHTTABLE_DATA_NAME # SHEET NAME
+                CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE)[0][0] # ตำแหน่งปัจจุบัน
+                NEXT_RANGE = nextRange(CURRENT_RANGE) # ตำแหน่งถัดไป
 
-                updateDATA_sheets(SHEETID, CURRENT_DATA_RANGE, NEXT_RANGE["data_range"])
-                updateDATA_sheets(SHEETID, WEIGHTTABLE_DATA_NAME+NEXT_RANGE["timestamp"],  _data["TIMESTAMP"])
-                updateDATA_sheets(SHEETID, WEIGHTTABLE_DATA_NAME+NEXT_RANGE["signature"], _data["SIGNATURE"])
-                sendData_sheets(SHEETID, WEIGHTTABLE_DATA_NAME+NEXT_RANGE["data_range"], _data["WEIGHT"])
+                # ตำแหน่ง
+                RANGE_LIST_NAME = {
+                    "NEXT_RANGE": CURRENT_DATA_RANGE,
+                    "TIMESTAMP": SHEET_NAME+NEXT_RANGE["timestamp"],
+                    "SIGNATURE": SHEET_NAME+NEXT_RANGE["signature"],
+                    "WEIGHT": SHEET_NAME+NEXT_RANGE["data_range"]
+                }
+
+                # ข้อมูล
+                DATA_LIST = {
+                    "NEXT_RANGE": NEXT_RANGE["data_range"],
+                    "TIMESTAMP": _data["TIMESTAMP"],
+                    "SIGNATURE": _data["SIGNATURE"],
+                    "WEIGHT":  _data["WEIGHT"]
+                }
+
+                sendData_sheets(SHEET_ID, SCRIPT_ID, RANGE_LIST_NAME, DATA_LIST) # ส่งข้อมูล
 
                 tabletName_cache.append(_data["TABLET_ID"])
                 deleted_cache.append(_data) # เก็บ _data ไว้ในลิสต์ที่จะลบ
-
-                # เช็คข้อมูลว่าเต็มแผ่นงานหรือไม่
-                if RANGE_LIST[-1]["data_range"] == NEXT_RANGE["data_range"]:
-                    newSheet(WEIGHTTABLE_SHEETID["SCRIPT_ID"]) # สร้าง sheet ไหม่,เคลียร์ sheet
-
         
             if deleted_cache:
                 # ลบ _data ที่ถูกเก็บไว้ในลิสต์ to_be_deleted ออกจาก offline_data
@@ -423,9 +427,13 @@ def newSheet(script_id):
             'devMode': True
         }
         response = service_script.scripts().run(body=request, scriptId=script_id).execute()
+        
         print(response)
+        return True
+    
     except errors.HttpError as error:
         print(error.content)
+        return False
 
 # อัพเดทฐานข้อมูลผู้ใช้งาน
 def update_user_data():
@@ -461,58 +469,60 @@ def update_user_data():
         textEnd(3, "<<Failed!>>")
 
 # อัพเดทฐานข้อมูลการตั้งค่า
-def update_setting_data():
-    WEIGHTTABLE_SHEETID = checkSheetID(tabletID) # หาข้อมูลจากเลขเครื่องตอก
-    SHEETID = WEIGHTTABLE_SHEETID["SHEETID"]
-    try:
-        # อัพเดทการตั้งค่าน้ำหนัก
-        print("Update Setting datalist...")
-        get_setting_data = service.spreadsheets().values().get(
-            spreadsheetId=SHEETID, range=WEIGHTTABLE_SETTING_RANGE).execute()
-        setting_data_list = get_setting_data["values"]
-
-        setting_jsonData = read_json(SETTING_JSON_DIR)
+def update_setting_data(WEIGHTTABLE_LIST):
+        try:
+            SHEETID = WEIGHTTABLE_LIST["SHEET_ID"]
+            TABLET_ID = WEIGHTTABLE_LIST["TABLET_ID"]
         
-        # ตรวจหาข้อมูล
-        matching_tablet = next((item for item in setting_jsonData['SETTING'] if item['tabletID'] == str(tabletID)), None)
+            # อัพเดทการตั้งค่าน้ำหนัก
+            print("Update Setting datalist...")
+            textEnd(3, "Update Setting...")
+            get_setting_data = service.spreadsheets().values().get(
+                spreadsheetId=SHEETID, range=WEIGHTTABLE_SETTING_RANGE).execute()
+            setting_data_list = get_setting_data["values"]
 
-        # ตรวจสอบผลลัพธ์
-        if matching_tablet is not None:
-            for index, data in enumerate(matching_tablet):
-                matching_tablet[data] = setting_data_list[index][0]
-        else:
-            setting_key = { 
-                "current_range": None,
-                "tabletID": None,
-                "scaleID": None,
-                "productName": None,
-                "pastle": None,
-                "Lot": None,
-                "number_tablets,": None,
-                "weight_control,": None,
-                "percent": None,
-                "min": None,
-                "max": None,
-                "min_control": None,
-                "max_control": None,
-                "min_dvt": None,
-                "max_dvt": None,
-                "admin_set": None
-            }
+            setting_jsonData = read_json(SETTING_JSON_DIR)
             
-            for index, key in enumerate(setting_key):
-                setting_key[key] = setting_data_list[index][0]
+            # ตรวจหาข้อมูล
+            matching_tablet = next((item for item in setting_jsonData['SETTING'] if item['tabletID'] == str(TABLET_ID)), None)
 
-            setting_jsonData["SETTING"].append(setting_key)
+            # ตรวจสอบผลลัพธ์
+            if matching_tablet is not None:
+                for index, data in enumerate(matching_tablet):
+                    matching_tablet[data] = setting_data_list[index][0]
+            else:
+                setting_key = { 
+                    "current_range": None,
+                    "tabletID": None,
+                    "scaleID": None,
+                    "productName": None,
+                    "pastle": None,
+                    "Lot": None,
+                    "number_tablets": None,
+                    "weight_control,": None,
+                    "percent": None,
+                    "min": None,
+                    "max": None,
+                    "min_control": None,
+                    "max_control": None,
+                    "min_dvt": None,
+                    "max_dvt": None,
+                    "admin_set": None
+                }
+                
+                for index, key in enumerate(setting_key):
+                    setting_key[key] = setting_data_list[index][0]
 
-        print(setting_jsonData)
-        write_json(SETTING_JSON_DIR, setting_jsonData)
-        print("<<< update success >>>", end='\n\n')
-        # textEnd(3, "Success")
+                setting_jsonData["SETTING"].append(setting_key)
 
-    except Exception as e:
-        print(f"<<update user data error>> \n {e} \n")
-        # textEnd(3, "<<Failed!>>")
+            print(setting_jsonData)
+            write_json(SETTING_JSON_DIR, setting_jsonData)
+            print("<<< update success >>>", end='\n\n')
+            textEnd(3, "Success")
+
+        except Exception as e:
+            print(f"<<update user data error>> \n {e} \n")
+            textEnd(3, "<<Failed!>>")
 
 # ลงชื่อเข้าใช้งาน
 def login():
@@ -535,7 +545,7 @@ def login():
                     jsonData["LOGIN_IPC"][key] = result[0][key]
 
                 write_json(DATABASE_JSON_DIR, jsonData)
-                printScreen(3, result[0]["nameEN"] + " " + TABLET_ID)
+                printScreen(3, result[0]["nameEN"])
                 sleep(1)
                 return result[0]
             
@@ -556,66 +566,79 @@ def logout():
 
     write_json(DATABASE_JSON_DIR, jsonData)
 
-# function update Data from googlesheets
-def updateDATA_sheets(SHEETID, RANGE, DATA):
-    try:
-        request = service.spreadsheets().values().update(
-                spreadsheetId = SHEETID,
-                range = RANGE, 
-                valueInputOption = "RAW",  
-                body = {"values": [[DATA]]}
-            ).execute()
-        
-        return request
-    except Exception as e:
-            print(f"\n<<update data sheets error>> \n {e} \n")
-            return False
-    
 # function Get Data from googlesheets
 def getData_sheets(SHEETID, RANGE):
-    get_data = service.spreadsheets().values().get(
-        spreadsheetId=SHEETID, range=RANGE).execute()
-    data_list = get_data["values"]
-    
-    return data_list
+    try:
+        get_data = service.spreadsheets().values().get(
+            spreadsheetId=SHEETID, range=RANGE).execute()
+        data_list = get_data["values"]
+        
+        return data_list
+
+    except Exception as e:
+        print(f"<<get data sheet error>> \n {e} \n")
+        return False
 
 # function Send Data to googlesheets
-def sendData_sheets(WEIGHTTABLE_SHEETID, sheetRange, dataArr):
-    try:
+def sendData_sheets(SHEET_ID, SCRIPT_ID, RANGE, DATA):
+    # function update Data from googlesheets
+    def updateDATA(_SHEETID, _RANGE, _DATA):
+        request = service.spreadsheets().values().update(
+                spreadsheetId = _SHEETID,
+                range = _RANGE, 
+                valueInputOption = "RAW",  
+                body = {"values": [[_DATA]]}
+            ).execute()
+
+    def appendDATA(_SHEETID, _RANGE, _DATA):   
         response = service.spreadsheets().values().append(
-            spreadsheetId=WEIGHTTABLE_SHEETID,
-            range=sheetRange,
+            spreadsheetId=_SHEETID,
+            range=_RANGE,
             body={
                 "majorDimension": "ROWS",
-                "values": dataArr
+                "values": _DATA
             },
             valueInputOption="USER_ENTERED"
         ).execute()
 
         print(f"{response} \n")
 
+    try:
+        updateDATA(SHEET_ID, RANGE["NEXT_RANGE"], DATA["NEXT_RANGE"])
+        updateDATA(SHEET_ID, RANGE["TIMESTAMP"],  DATA["TIMESTAMP"])
+        updateDATA(SHEET_ID, RANGE["SIGNATURE"], DATA["SIGNATURE"])
+        appendDATA(SHEET_ID, RANGE["WEIGHT"], DATA["WEIGHT"])
+
+        # เช็คข้อมูลว่าเต็มแผ่นงานหรือไม่
+        if DATA["NEXT_RANGE"] == RANGE_LIST[-1]["data_range"]:
+            print("<<DATA SHEET FULL>>")
+            printScreen(0, "<<DATA SHEET>>")
+            printScreen(1, "<<FULL>>")
+            while not newSheet(SCRIPT_ID): # สร้าง sheet ไหม่,เคลียร์ sheet
+                sleep(1)
+
         return True
     
     except Exception as e:
-        print(f"\n<<Send data sheets error>> \n {e} \n")
+        print(f"<<send data sheet error>> \n {e} \n")
         return False
-
+    
 # อ่านค่าน้ำหนักจากเครื่องชั่ง
-def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
+def getWeight(USERNAME=None, TABLET_ID=15, Max_Tab=20, Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
     
     dataWeight = []  # เก็บค่าน้ำหนัก
     # sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
 
-    while len(dataWeight) < 2:
+    while len(dataWeight) < int(Max_Tab):
         now = datetime.now()
         date_time = now.strftime("%d/%m/%Y, %H:%M:%S")  # วันที่เวลา
         Today = now.strftime("%d/%m/%Y")  # วันที่
         Time = now.strftime("%H:%M:%S")  # เวลา
 
-        printScreen(1, "<< Ready >>")
-        print(str(date_time))
+        printScreen(0, "<< Ready >>")
+        print(f"\n{str(date_time)}")
         print("READY:", TABLET_ID)
-        sleep(5)
+        sleep(0.2)
         
         led1.off()
         led2.off()
@@ -624,7 +647,7 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         # อ่านค่าจาก port rs232
         # w = sr.readline()
         # w = random(0.155, 0.165)
-        currentWeight = str(random.uniform(0.155,0.165))
+        currentWeight = str(random.uniform(0.180,0.202))
         # currentWeight = w.decode('ascii', errors='ignore')
         currentWeight = currentWeight.replace("?", "").strip().upper()
         currentWeight = currentWeight.replace("G", "").strip()
@@ -635,18 +658,17 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         currentWeight = currentWeight.replace("+", "").strip() 
         weight = round(float(currentWeight), 3)
         
-        dataWeight.append(weight)
-        print(len(dataWeight),".) ",weight)
-        
-        printScreen(1, "Wait.... ")
-        
-        for i in dataWeight:
-            if len(dataWeight) == 1:
-                clearScreen(3, 9, 10)
-                lcd.cursor_pos = (3, 0)
-            else: 
-                lcd.cursor_pos = (3, 11)
-            lcd.write_string((str(len(dataWeight)))+".) "+str('%.3f' % weight))
+        printScreen(0, "Wait.... ")
+        sleep(0.2)
+
+        Timestamp = datetime.now().strftime("%H:%M:%S")
+        dataWeight.append([Timestamp, weight])
+        print(str(len(dataWeight))+")"+str(weight))
+        screen(dataWeight, '%.3f' % weight)
+        buzzer.beep(0.1, 0.1, 1)
+
+        with canvas(led_scr) as draw:
+            text(draw, (7, 0), '%.3f' % weight, fill="red", font=proportional(TINY_FONT))
 
         # รีเซ็ตโปรแกรม
         if weight < 0.005:
@@ -667,23 +689,33 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
             led3.on()
             print("ไม่ผ่าน")
 
-        if len(dataWeight) == 2:
-            weight_obj = {
-                "time": date_time,
-                "weight1": str('%.3f' % dataWeight[0]),
-                "weight2": str('%.3f' % dataWeight[1]),
-                "quantity": str('%.3f' % round(sum(dataWeight)/len(dataWeight), 3))
-            }
+    weight_obj = {
+        "TABLET_ID": TABLET_ID,
+        "TIMESTAMP": date_time,
+        "SIGNATURE": USERNAME,
+        "TYPE": "ONLINE",
+        "WEIGHT": dataWeight
+    }
 
-            # Timestamp dataWeight
-            dataWeight.insert(0, Time)
-            sleep(1)
-            return weight_obj
-        else:
-            sleep(1)
+    sleep(2)
+    return weight_obj
+
+# สรุปผล
+def weightSummary(Min_W=0, Max_W=0, AVG_W=0, status=None):
+    if status == "OFFLINE":
+        led3.blink()
+
+    led_scr.clear()
+    lcd.clear()
+    printScreen(0, "WEIGHT VARIATION")
+    printScreen(1, f"<< {status} >>")
+    textEnd(2, "MIN:"+ str('%.3f' % Min_W) + "  " + "MAX:" + str('%.3f' % Max_W))
+    textEnd(3, "AVG:"+str('%.3f' % AVG_W))
+    sleep(5)
 
 # โปรแกรมหลัก
 def main():
+    logout() # ล้างข้อมูลผู้ใช้งาน
     lcd.clear()
     led1.blink()
     sleep(0.5)
@@ -704,6 +736,7 @@ def main():
     checkData_offline()
 
     # อัพเดพข้อมูลรายชื่อ
+    printScreen(0, "WEIGHT VARIATION")
     printScreen(1, "UPDATE DATA LIST")
     print("<<<< UPDATE DATA >>>>")
     update_user_data()
@@ -711,7 +744,7 @@ def main():
     printScreen(3, "<< SUCCESS >>")
 
     try:
-        result = read_json(DATABASE_JSON_DIR)["LOGIN_ROOM"]
+        result = read_json(DATABASE_JSON_DIR)["LOGIN_IPC"]
         # ตรวจสอบสถานะ login
         if not result["rfid"]:
             result = login() # เข้าหน้า login
@@ -723,54 +756,110 @@ def main():
             nameTH = result["nameTH"]
             password = result["password"]
             root = result["root"]
-            
-            # ป้อนหมายเลขเครื่องตอก
 
-            setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
-            
+            WEIGHTTABLE_LIST = False # ตรวจสอบความถูกต้องของหมายเลขเครื่องตอก
+            while not WEIGHTTABLE_LIST:
+                # อัพเดพข้อมูลรายชื่อ
+                printScreen(1, "SELECT TABLET ID")
+                # ป้อนหมายเลขเครื่องตอก
+                # TABLET_ID = readKeypad("TABLET_ID: ")
+                TABLET_ID = input("TabletID: ")
+                WEIGHTTABLE_LIST = checkSheetID(TABLET_ID)
+                if not WEIGHTTABLE_LIST:
+                    printScreen(3, "Tablet not found")
+                    sleep(1)
+
+                get_setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
+
+            # ตรวจหาข้อมูล
+            printScreen(2, f"T{TABLET_ID}")
+            setting_data = next((item for item in get_setting_data['SETTING'] if item['tabletID'] == str(TABLET_ID)), None)
+            update_setting_data(WEIGHTTABLE_LIST) # อัพเดทฐานข้อมูลการตั้งค่า
+
             # มีข้อมูลการตั้งค่าน้ำหนักยา
-            if setting_data["productName"]:
+            if setting_data:
                 # ค่า min,max ที่กำหนด
+                Max_Tab = setting_data["number_tablets"]
                 Min = float(setting_data["min"])
                 Max = float(setting_data["max"])
-                Min_DVT = float(setting_data["min_control"])
-                Max_DVT = float(setting_data["max_control"])
-            
-                weight = getWeight(Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+                Min_CONTROL = float(setting_data["min_control"])
+                Max_CONTROL = float(setting_data["max_control"])
+                Min_DVT = float(setting_data["min_dvt"])
+                Max_DVT = float(setting_data["max_dvt"])
+
+                lcd.clear() # เคลียร์หน้าจอ
+                weight = getWeight(nameTH, TABLET_ID, Max_Tab, Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
             else:
-                weight = getWeight()              
-
-            # สร้างข้อมูลเตรียมส่งบันทึก
-            packetdata_arr = [
-                weight["time"],
-                "ONLINE",
-                weight["weight1"],
-                weight["weight2"],
-                None,
-                None,
-                "ไม่ระบุ",
-                nameTH,
-            ]
-
-            packetdata_arr.extend(["-"] * 11) # เพิ่ม - เข้า packetdata_arr 11 ตัว
-            checkData_offline() # ตรวจสอบและส่งข้อมูล offline
-            status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
-
-            if not status:
-                packetdata_arr[1] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
-                update_json(OFFLINE_JSON_DIR, packetdata_arr[0:8]) # บันทึกข้อมูล 1-7 ไปยัง offline.json 
+                # ป้อนจำนวนเม็ดที่ต้องชั่ง
+                # Max_Tab = readKeypad("AMOUNT: ")
+                printScreen(1, "SELECT TABLET ID")
+                Max_Tab = input("AMOUNT: ")
+                lcd.clear() # เคลียร์หน้าจอ
+                weight = getWeight(nameTH, TABLET_ID, Max_Tab)        
 
             # ค่า min,max,avg ของน้ำหนักที่ชั่ง
-            weight_cache = [float(weight["weight1"]), float(weight["weight2"])]
+            weight_cache = []
+            for weight_record in weight["WEIGHT"]:
+                weight_cache.append(float(weight_record[1]))
+
+            Min_W = min(weight_cache)
+            Max_W = max(weight_cache)
+            AVG_W = round(sum(weight_cache)/len(weight_cache), 3)
+            
+            WEIGHTTABLE_SHEETID = checkSheetID(TABLET_ID) # หาข้อมูลจากเลขเครื่องตอก
+            SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
+            SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SHEET ID
+            SHEET_NAME = WEIGHTTABLE_DATA_NAME # SHEET NAME
+
+            GET_CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE) # ตำแหน่งปัจจุบัน
+
+            if GET_CURRENT_RANGE:
+                CURRENT_RANGE = GET_CURRENT_RANGE[0][0]
+                NEXT_RANGE = nextRange(CURRENT_RANGE) # ตำแหน่งถัดไป
+
+                # ตำแหน่ง
+                RANGE_LIST_NAME = {
+                    "NEXT_RANGE": CURRENT_DATA_RANGE,
+                    "TIMESTAMP": SHEET_NAME+NEXT_RANGE["timestamp"],
+                    "SIGNATURE": SHEET_NAME+NEXT_RANGE["signature"],
+                    "WEIGHT": SHEET_NAME+NEXT_RANGE["data_range"]
+                }
+
+                # ข้อมูล
+                DATA_LIST = {
+                    "NEXT_RANGE": NEXT_RANGE["data_range"],
+                    "TIMESTAMP": weight["TIMESTAMP"],
+                    "SIGNATURE": weight["SIGNATURE"],
+                    "WEIGHT":  weight["WEIGHT"]
+                }
+
+                lcd.clear() # ล้างหน้าจอ
+                checkData_offline() # ตรวจสอบและส่งข้อมูล offline
+                textEnd(3, "Sending data....")
+                status = sendData_sheets(SHEET_ID, SCRIPT_ID, RANGE_LIST_NAME, DATA_LIST) # ส่งข้อมูลไปยัง google sheet
+                if status:
+                    lineAlert = True
+                if not status:
+                    weight["TYPE"] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
+                    update_json(OFFLINE_JSON_DIR, weight) # offline.json 
+
+            else:
+                weight["TYPE"] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
+                update_json(OFFLINE_JSON_DIR, weight) # offline.json 
+                
+           # ค่า min,max,avg ของน้ำหนักที่ชั่ง
+            weight_cache = []
+            for weight_record in weight["WEIGHT"]:
+                weight_cache.append(float(weight_record[1]))
+
             Min_W = min(weight_cache)
             Max_W = max(weight_cache)
             AVG_W = round(sum(weight_cache)/len(weight_cache), 3)
 
-            weightSummary(Min_W, Max_W, AVG_W, packetdata_arr[1])
-            logout() # ออกจากระบบ
-
-            # มีข้อมูลการตั้งค่าน้ำหนักยา
-            if setting_data["productName"]:
+            weightSummary(Min_W, Max_W, AVG_W, weight["TYPE"])
+            print(weight)
+            
+            if lineAlert:
                 if AVG_W >= Min and AVG_W <= Max:
                     led1.blink()
                     led2.off()
@@ -798,7 +887,7 @@ def main():
     
                     
                     meseage_alert = '\n'+str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))+'\n'+\
-                        'ระบบเครื่องชั่ง 10 เม็ด'+'\n'+\
+                        'ระบบเครื่องชั่ง IPC'+'\n'+\
                         'เครื่องตอก: '+TABLET_ID+'\n'+\
                         'ชื่อยา: '+setting_data["productName"]+'\n'+\
                         'Lot.'+setting_data["Lot"]+'\n'+\
@@ -806,11 +895,10 @@ def main():
                         '('+str('%.3f' % Min_DVT)+'g. - '+str('%.3f' % Max_DVT) + 'g.)'
                     
                     # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                    # lineNotify(meseage_alert)
+                    lineNotify(meseage_alert)
                 
     except Exception as e:
         print(f"<<main error>> \n {e} \n")
 
 if __name__ == '__main__':
-    # main()
-    update_setting_data()
+    main()
