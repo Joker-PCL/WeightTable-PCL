@@ -40,6 +40,7 @@ led2 = LED(23)
 led3 = LED(22)
 
 # ตั้งค่า
+LINE_TOKEN = 'XGeivDcekfbgCYH9eNi2rCbDU9jSpktLm6FZsAcTLs0'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 CREDENTIALS_DIR = '/home/pi/Desktop/poligram/database/credentials.json'
 TOKEN_DIR = '/home/pi/Desktop/poligram/token.pickle'
@@ -78,12 +79,11 @@ def clearScreen(row, col=0, numcol=20):
     lcd.write_string(text.rjust(numcol, " "))
 
 # ส่งไลน์แจ้งเตือน
-def lineNotify(msg):
+def lineNotify(Message):
     url = 'https://notify-api.line.me/api/notify'
-    token = 'p9YWBiZrsUAk7Ef9d0hLTMMF2CxIaTnRopHaGcosM4q'
     headers = {'content-type': 'application/x-www-form-urlencoded',
-               'Authorization': 'Bearer '+token}
-    requests.post(url, headers=headers, data={'message': msg})
+               'Authorization': 'Bearer '+LINE_TOKEN}
+    requests.post(url, headers=headers, data={'message': Message})
 
 # อ่านข้อมูล json
 def read_json(dir):

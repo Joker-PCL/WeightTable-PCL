@@ -114,18 +114,43 @@ OFFLINE_JSON_DIR = '/home/pi/Desktop/poligram/database/offline_ipc.json'
 WEIGHTTABLE_SETTING_RANGE = "Setting!A3:A18"
 WEIGHTTABLE_DATA_NAME = "Weight Variation!"
 WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
+CURRENT_DATA_RANGE = "Setting!A3"
 
 # ข้อมูล SHEETID ของ google sheet
 TABLET_LIST = [
     {
         "TABLET_ID": "11" ,
         "SHEET_ID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
-        "SCRIPT_ID": "1gXG8FA3xad1jy0Z8NB8980tFUxXP1_KY1FAU1eokKsgye26BOx-bc3bl"
+        "SCRIPT_ID": "AKfycbz3ewnHJMnv7NU_714IF5D_kFf-M0a6ZRKM3snDWDSTiNPor925JhtrQ3lYI-UZEmFi"
     },
     {
         "TABLET_ID": "15" ,
-        "SHEET_ID": "1_plXAUFWopvnAbeIe7QKTgr8HwhKMQsyGHy0iwbuQIQ",
-        "SCRIPT_ID": "12Ze7g9jIBSxdwH_6z17ehfDwPTCxKJgV436PlOd_6KqaKb_z_Gx2kmkC"
+        "SHEET_ID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
+        "SCRIPT_ID": "AKfycbz3ewnHJMnv7NU_714IF5D_kFf-M0a6ZRKM3snDWDSTiNPor925JhtrQ3lYI-UZEmFi"
+    }
+]
+
+# ตำแหน่งการบันทึกข้อมูล
+RANGE_LIST = [
+    {
+        "data_range": "A19:B68",
+        "timestamp": "A17",
+        "signature": "B76"
+    },
+    {
+        "data_range": "D19:E68",
+        "timestamp": "D17",
+        "signature": "E76"
+    },
+    {
+        "data_range": "G19:H68",
+        "timestamp": "G17",
+        "signature": "H76"
+    },
+    {
+        "data_range": "J19:K68",
+        "timestamp": "J17",
+        "signature": "K76"
     }
 ]
 
@@ -212,6 +237,12 @@ def checkSheetID(TABLET_ID):
         return result[0]
     else:
         return False
+
+# ส่งตำแหน่งที่จะพิมพ์ในครั้งถัดไป
+def nextRange(RangeName):
+    current_range = next((i for i, item in enumerate(RANGE_LIST) if item['data_range'] == RangeName), None)
+    next_range = RANGE_LIST[(current_range + 1) % len(RANGE_LIST)] if current_range is not None else None
+    return next_range
 
 # แสดงผลค่าน้ำหนัก
 def screen(total_weight, weight):
@@ -335,24 +366,32 @@ def checkData_offline():
                 print("Sending data offline...")
                 textEnd(3, "Sending data...")
                 WEIGHTTABLE_SHEETID = checkSheetID(_data["TABLET_ID"])  # หาข้อมูลจากเลขเครื่องตอก
-                SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SCRIPT ID
                 SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
-                GET_CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE) # ตำแหน่งปัจจุบัน
+                SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SCRIPT ID
+                SHEET_NAME = WEIGHTTABLE_DATA_NAME # SHEET NAME
+                CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE)[0][0] # ตำแหน่งปัจจุบัน
+                NEXT_RANGE = nextRange(CURRENT_RANGE) # ตำแหน่งถัดไป
 
-                if GET_CURRENT_RANGE:
-                    CURRENT_RANGE = GET_CURRENT_RANGE[0][0]
-                    # ข้อมูล
-                    DATA_LIST = {
-                        "CURRENT_RANGE": CURRENT_RANGE,
-                        "TIMESTAMP": _data["TIMESTAMP"],
-                        "SIGNATURE": _data["SIGNATURE"],
-                        "WEIGHT":  _data["WEIGHT"]
-                    }
+                # ตำแหน่ง
+                RANGE_LIST_NAME = {
+                    "NEXT_RANGE": CURRENT_DATA_RANGE,
+                    "TIMESTAMP": SHEET_NAME+NEXT_RANGE["timestamp"],
+                    "SIGNATURE": SHEET_NAME+NEXT_RANGE["signature"],
+                    "WEIGHT": SHEET_NAME+NEXT_RANGE["data_range"]
+                }
 
-                    sendData_sheets(SCRIPT_ID, DATA_LIST) # ส่งข้อมูล
+                # ข้อมูล
+                DATA_LIST = {
+                    "NEXT_RANGE": NEXT_RANGE["data_range"],
+                    "TIMESTAMP": _data["TIMESTAMP"],
+                    "SIGNATURE": _data["SIGNATURE"],
+                    "WEIGHT":  _data["WEIGHT"]
+                }
 
-                    tabletName_cache.append(_data["TABLET_ID"]) # เก็บหมายเลขเครื่องตอกที่ถูกส่งข้อมูล offline
-                    deleted_cache.append(_data) # เก็บ _data ไว้ในลิสต์ที่จะลบ
+                sendData_sheets(SHEET_ID, SCRIPT_ID, RANGE_LIST_NAME, DATA_LIST) # ส่งข้อมูล
+
+                tabletName_cache.append(_data["TABLET_ID"])
+                deleted_cache.append(_data) # เก็บ _data ไว้ในลิสต์ที่จะลบ
         
             if deleted_cache:
                 # ลบ _data ที่ถูกเก็บไว้ในลิสต์ to_be_deleted ออกจาก offline_data
@@ -360,7 +399,6 @@ def checkData_offline():
                     offline_data.remove(_data)
                 write_json(OFFLINE_JSON_DIR, {"DATA": offline_data})   
 
-                tabletName_cache = list(set(tabletName_cache)) # ลบรายการเครื่องตอกที่ซ้ำออก
                 tablet_msg = ', '.join(['T' + str(num) for num in tabletName_cache]) # รายชื่อเครื่องตอกที่ถูกส่งข้อมูล offline     
                 msg_Notify = '\n🔰 มีข้อมูล offline เพิ่มเข้ามาไหม่ \n' +\
                     '🔰 ระบบเครื่องชั่ง IPC \n' +\
@@ -379,6 +417,23 @@ def checkData_offline():
         except Exception as e:
                 print(f"\n<< checkData offline >> \n {e} \n")    
                 textEnd(3, "<<Failed!>>")
+
+# สร้าง sheet ไหม่,เคลียร์ sheet โดยการรัน script ของ google appscript
+def newSheet(script_id):
+    try:
+        request = {
+            'function': "duplicate",
+            'parameters': [],
+            'devMode': True
+        }
+        response = service_script.scripts().run(body=request, scriptId=script_id).execute()
+        
+        print(response)
+        return True
+    
+    except errors.HttpError as error:
+        print(error.content)
+        return False
 
 # อัพเดทฐานข้อมูลผู้ใช้งาน
 def update_user_data():
@@ -431,12 +486,12 @@ def update_setting_data(WEIGHTTABLE_LIST):
             # ตรวจหาข้อมูล
             matching_tablet = next((item for item in setting_jsonData['SETTING'] if item['tabletID'] == str(TABLET_ID)), None)
 
-            # ตรวจสอบผลลัพธ์setting_temp
+            # ตรวจสอบผลลัพธ์
             if matching_tablet is not None:
                 for index, data in enumerate(matching_tablet):
                     matching_tablet[data] = setting_data_list[index][0]
             else:
-                setting_temp = { 
+                setting_key = { 
                     "current_range": None,
                     "tabletID": None,
                     "scaleID": None,
@@ -455,10 +510,10 @@ def update_setting_data(WEIGHTTABLE_LIST):
                     "admin_set": None
                 }
                 
-                for index, key in enumerate(setting_temp):
-                    setting_temp[key] = setting_data_list[index][0]
+                for index, key in enumerate(setting_key):
+                    setting_key[key] = setting_data_list[index][0]
 
-                setting_jsonData["SETTING"].append(setting_temp)
+                setting_jsonData["SETTING"].append(setting_key)
 
             print(setting_jsonData)
             write_json(SETTING_JSON_DIR, setting_jsonData)
@@ -525,20 +580,47 @@ def getData_sheets(SHEETID, RANGE):
         return False
 
 # function Send Data to googlesheets
-def sendData_sheets(SCRIPT_ID, DATA_LIST):
+def sendData_sheets(SHEET_ID, SCRIPT_ID, RANGE, DATA):
+    # function update Data from googlesheets
+    def updateDATA(_SHEETID, _RANGE, _DATA):
+        request = service.spreadsheets().values().update(
+                spreadsheetId = _SHEETID,
+                range = _RANGE, 
+                valueInputOption = "RAW",  
+                body = {"values": [[_DATA]]}
+            ).execute()
+
+    def appendDATA(_SHEETID, _RANGE, _DATA):   
+        response = service.spreadsheets().values().append(
+            spreadsheetId=_SHEETID,
+            range=_RANGE,
+            body={
+                "majorDimension": "ROWS",
+                "values": _DATA
+            },
+            valueInputOption="USER_ENTERED"
+        ).execute()
+
+        print(f"{response} \n")
+
     try:
-        request = {
-            'function': "reciveData",
-            'parameters': [DATA_LIST],
-            'devMode': True
-        }
-        response = service_script.scripts().run(body=request, scriptId=SCRIPT_ID).execute()
-        
-        print(response)
-        return response
+        updateDATA(SHEET_ID, RANGE["NEXT_RANGE"], DATA["NEXT_RANGE"])
+        updateDATA(SHEET_ID, RANGE["TIMESTAMP"],  DATA["TIMESTAMP"])
+        updateDATA(SHEET_ID, RANGE["SIGNATURE"], DATA["SIGNATURE"])
+        appendDATA(SHEET_ID, RANGE["WEIGHT"], DATA["WEIGHT"])
+
+        # เช็คข้อมูลว่าเต็มแผ่นงานหรือไม่
+        if DATA["NEXT_RANGE"] == RANGE_LIST[-1]["data_range"]:
+            print("<<DATA SHEET FULL>>")
+            printScreen(0, "<<DATA SHEET>>")
+            printScreen(1, "<<FULL>>")
+            while not newSheet(SCRIPT_ID): # สร้าง sheet ไหม่,เคลียร์ sheet
+                sleep(1)
+
+        return True
     
-    except errors.HttpError as error:
-        print(f"<<send data sheet error>> \n {error.content} \n") 
+    except Exception as e:
+        print(f"<<send data sheet error>> \n {e} \n")
         return False
     
 # อ่านค่าน้ำหนักจากเครื่องชั่ง
@@ -565,7 +647,7 @@ def getWeight(USERNAME=None, TABLET_ID=15, Max_Tab=20, Min_AVG=0, Max_AVG=0, Min
         # อ่านค่าจาก port rs232
         # w = sr.readline()
         # w = random(0.155, 0.165)
-        currentWeight = str(random.uniform(0.170,0.210))
+        currentWeight = str(random.uniform(0.180,0.202))
         # currentWeight = w.decode('ascii', errors='ignore')
         currentWeight = currentWeight.replace("?", "").strip().upper()
         currentWeight = currentWeight.replace("G", "").strip()
@@ -687,12 +769,12 @@ def main():
                     printScreen(3, "Tablet not found")
                     sleep(1)
 
-            printScreen(2, f"T{TABLET_ID}")
-            update_setting_data(WEIGHTTABLE_LIST) # อัพเดทฐานข้อมูลการตั้งค่า
+                get_setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
 
             # ตรวจหาข้อมูล
-            get_setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
+            printScreen(2, f"T{TABLET_ID}")
             setting_data = next((item for item in get_setting_data['SETTING'] if item['tabletID'] == str(TABLET_ID)), None)
+            update_setting_data(WEIGHTTABLE_LIST) # อัพเดทฐานข้อมูลการตั้งค่า
 
             # มีข้อมูลการตั้งค่าน้ำหนักยา
             if setting_data:
@@ -725,19 +807,27 @@ def main():
             AVG_W = round(sum(weight_cache)/len(weight_cache), 3)
             
             WEIGHTTABLE_SHEETID = checkSheetID(TABLET_ID) # หาข้อมูลจากเลขเครื่องตอก
-            SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SCRIPT ID
             SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
+            SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SHEET ID
+            SHEET_NAME = WEIGHTTABLE_DATA_NAME # SHEET NAME
+
             GET_CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE) # ตำแหน่งปัจจุบัน
-            print(GET_CURRENT_RANGE)
-            
-            lineAlert = False # สถานะการส่งไลน์
 
             if GET_CURRENT_RANGE:
                 CURRENT_RANGE = GET_CURRENT_RANGE[0][0]
+                NEXT_RANGE = nextRange(CURRENT_RANGE) # ตำแหน่งถัดไป
+
+                # ตำแหน่ง
+                RANGE_LIST_NAME = {
+                    "NEXT_RANGE": CURRENT_DATA_RANGE,
+                    "TIMESTAMP": SHEET_NAME+NEXT_RANGE["timestamp"],
+                    "SIGNATURE": SHEET_NAME+NEXT_RANGE["signature"],
+                    "WEIGHT": SHEET_NAME+NEXT_RANGE["data_range"]
+                }
+
                 # ข้อมูล
                 DATA_LIST = {
-                    "TYPE": weight["TYPE"],
-                    "CURRENT_RANGE": CURRENT_RANGE,
+                    "NEXT_RANGE": NEXT_RANGE["data_range"],
                     "TIMESTAMP": weight["TIMESTAMP"],
                     "SIGNATURE": weight["SIGNATURE"],
                     "WEIGHT":  weight["WEIGHT"]
@@ -746,94 +836,66 @@ def main():
                 lcd.clear() # ล้างหน้าจอ
                 checkData_offline() # ตรวจสอบและส่งข้อมูล offline
                 textEnd(3, "Sending data....")
-                status = sendData_sheets(SCRIPT_ID, DATA_LIST) # ส่งข้อมูลไปยัง google sheet
+                status = sendData_sheets(SHEET_ID, SCRIPT_ID, RANGE_LIST_NAME, DATA_LIST) # ส่งข้อมูลไปยัง google sheet
                 if status:
-                    lineAlert = True # สถานะการส่งไลน์
-                else:
+                    lineAlert = True
+                if not status:
                     weight["TYPE"] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
                     update_json(OFFLINE_JSON_DIR, weight) # offline.json 
+
             else:
                 weight["TYPE"] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
                 update_json(OFFLINE_JSON_DIR, weight) # offline.json 
-            
-            # สรุปผล
+                
+           # ค่า min,max,avg ของน้ำหนักที่ชั่ง
+            weight_cache = []
+            for weight_record in weight["WEIGHT"]:
+                weight_cache.append(float(weight_record[1]))
+
+            Min_W = min(weight_cache)
+            Max_W = max(weight_cache)
+            AVG_W = round(sum(weight_cache)/len(weight_cache), 3)
+
             weightSummary(Min_W, Max_W, AVG_W, weight["TYPE"])
+            print(weight)
             
-            # แจ้งเตือนไลน์
             if lineAlert:
                 if AVG_W >= Min and AVG_W <= Max:
                     led1.blink()
                     led2.off()
                     led3.off()
-                    averageOutOfRange = False
                     textEnd(1, "<<Very Good>>")
 
                 elif AVG_W >= Min_DVT and AVG_W <= Max_DVT:
                     led1.off()
                     led2.blink()
                     led3.off()
-                    averageOutOfRange = True
                     textEnd(1, "<<Failed!>>")
 
                 else:
                     led1.off()
                     led2.off()
                     led3.blink()
-                    averageOutOfRange = True
                     textEnd(1, "<<Failed!>>")
 
-                timestamp_alert = str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))
-                weightOutOfRange = [] # เก็บรายการเม็ดที่ไม่อยู่ในช่วง
-                for w in weight["WEIGHT"]:
-                    if w[-1] < Min or w[-1] > Max:
-                        w[-1] = str('%.3f' % w[-1])
-                        weightOutOfRange.append(w)
-
-                # รายการเม็ดที่ไม่ได้อยู่ในช่วงที่กำหนด
-                if weightOutOfRange:
-                    weightOutOfRange = '\n'.join([str(item) for item in weightOutOfRange])  
-                    weightOutOfRange = f"❎เม็ดที่ไม่ได้อยู่ในช่วงที่กำหนด\n{weightOutOfRange}"
-
-                # ค่าเฉลี่ยไม่ได้อยู่ในช่วงที่กำหนด
-                if averageOutOfRange:
-                    averageOutOfRange = f"🔰ค่าเฉลี่ย {'%.3f' % AVG_W}g."
-                   
-                productName = setting_data["productName"]
-                lot = setting_data["Lot"]
-                if weightOutOfRange or averageOutOfRange:
-                    if not weightOutOfRange:
-                        weightOutOfRange = ""
-                    if not averageOutOfRange:
-                        averageOutOfRange = ""
-
-                    meseage_alert = f"\n {timestamp_alert} \n" +\
-                        "🔰ระบบเครื่องชั่ง IPC \n" +\
-                        f"🔰เครื่องตอก: {TABLET_ID} \n" +\
-                        f"🔰ชื่อยา: {productName} \n" +\
-                        "🔰Lot. " + str(lot) + "\n" +\
-                        "✅ช่วงที่กำหนด \n" +\
-                        f"({'%.3f' % Min_DVT}g. - {'%.3f' % Max_DVT}g.) \n" +\
-                        f"{weightOutOfRange} \n" +\
-                        f"{averageOutOfRange}"
+                    meseage = 'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+\
+                        '\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด('+str('%.3f' % Min_DVT)+\
+                        'g. - '+str('%.3f' % Max_DVT)+'g.)'
+                    
+                    # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+                    sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[weight["time"], meseage]])
+    
+                    
+                    meseage_alert = '\n'+str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))+'\n'+\
+                        'ระบบเครื่องชั่ง IPC'+'\n'+\
+                        'เครื่องตอก: '+TABLET_ID+'\n'+\
+                        'ชื่อยา: '+setting_data["productName"]+'\n'+\
+                        'Lot.'+setting_data["Lot"]+'\n'+\
+                        'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+'\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด'+'\n'+\
+                        '('+str('%.3f' % Min_DVT)+'g. - '+str('%.3f' % Max_DVT) + 'g.)'
                     
                     # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
                     lineNotify(meseage_alert)
-
-                    # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                    response = service.spreadsheets().values().append(
-                        spreadsheetId=SHEET_ID,
-                        range=WEIGHTTABLE_REMARKS_RANGE,
-                        body={
-                            "majorDimension": "ROWS",
-                            "values": [[
-                                timestamp_alert, 
-                                "✅ช่วงที่กำหนด \n" +\
-                                f"({'%.3f' % Min_DVT}g. - {'%.3f' % Max_DVT}g.) \n" +\
-                                f"{weightOutOfRange} \n {averageOutOfRange}"
-                            ]]
-                        },
-                        valueInputOption="USER_ENTERED"
-                    ).execute()
                 
     except Exception as e:
         print(f"<<main error>> \n {e} \n")
