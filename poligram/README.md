@@ -25,6 +25,8 @@ sudo usermod -a -G spi,gpio pi
 #sudo apt install build-essential python3-dev python3-pip libfreetype6-dev libjpeg-dev libopenjp2-7 libtiff5 -y
 sudo pip3 install setuptools
 sudo pip3 install --upgrade luma.led_matrix
+https://youtu.be/BImKhs59hU0
+https://github.com/freedomwebtech/max7219voicecontrol
 
 #####   install LCD 20x4    #####
 sudo pip3 install RPLCD
