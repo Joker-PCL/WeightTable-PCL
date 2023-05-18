@@ -29,12 +29,9 @@ from RPLCD.i2c import CharLCD
 from gpiozero import LED, Buzzer
 import RPi.GPIO as GPIO
 
-buzzer = Buzzer(12)
+buzzer = Buzzer(26)
 
 lcd = CharLCD('PCF8574', 0x27)  # address lcd 20x4
-led1 = LED(27)  # red
-led2 = LED(22)  # yellow
-led3 = LED(23)  # green
 
 # LED Dotmatrix
 from luma.led_matrix.device import max7219
@@ -118,19 +115,19 @@ WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
 # ข้อมูล SHEETID ของ google sheet
 TABLET_LIST = [
     {
-        "TABLET_ID": "11" ,
+        "TABLET_ID": "T11" ,
         "SHEET_ID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
         "SCRIPT_ID": "1gXG8FA3xad1jy0Z8NB8980tFUxXP1_KY1FAU1eokKsgye26BOx-bc3bl"
     },
     {
-        "TABLET_ID": "15" ,
+        "TABLET_ID": "T15" ,
         "SHEET_ID": "1_plXAUFWopvnAbeIe7QKTgr8HwhKMQsyGHy0iwbuQIQ",
         "SCRIPT_ID": "12Ze7g9jIBSxdwH_6z17ehfDwPTCxKJgV436PlOd_6KqaKb_z_Gx2kmkC"
     }
 ]
 
-keypad_rows = [26, 16, 20, 21]
-keypad_cols = [5, 6, 13, 19]
+keypad_rows = [22, 27, 18, 17]
+keypad_cols = [19, 13, 12, 25]
 
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
@@ -142,7 +139,7 @@ for i in range(len(keypad_rows)):
 keypad = [["1", "2", "3", "A"],
           ["4", "5", "6", "B"],
           ["7", "8", "9", "C"],
-          ["", "0", "", "D"]]
+          ["*", "0", "#", "D"]]
 
 # แสดงข้อความ dot matrix
 def dotmatrix(draw, xy, txt, fill=None):
@@ -161,6 +158,9 @@ def readKeypad(Message):
     previousMillis = 0
     Timer = 60  # settimeout sec.
     keypad_cache = ""
+    text = f"{Message}:"
+    lcd.cursor_pos = (3, 0)
+    lcd.write_string(text.ljust(20))
 
     while Timer:
         for i in range(len(keypad_rows)):
@@ -173,10 +173,13 @@ def readKeypad(Message):
                 if (GPIO.input(gpio_in) == 1):
                     buzzer.beep(0.1, 0.1, 1)
                     key = keypad[i][x]
+                    Timer = 60
 
-                    if key == "D" and keypad_cache:
+                    if key == "*" or  key == "#":
+                        quit()
+                    elif key == "D" and keypad_cache:
                         keypad_cache = keypad_cache[0:-1] # ลบ
-                    elif key != "A" and key != "B" and key != "C" and key != "D":
+                    elif key != "A" and key != "B" and key != "C" and key != "D" and len(keypad_cache) < 2:
                         keypad_cache = keypad_cache+key
                     elif key == "C" and keypad_cache:
                         return keypad_cache
@@ -184,7 +187,7 @@ def readKeypad(Message):
                         pass
 
                     text = f"{Message}: {keypad_cache}"
-                    text.ljust(20-len(text))
+                    text = text.ljust(20)
                     lcd.cursor_pos = (3, 0)
                     lcd.write_string(text)
                     sleep(0.3)
@@ -196,10 +199,7 @@ def readKeypad(Message):
         currentMillis = time()
         if currentMillis - previousMillis > 1:
             previousMillis = currentMillis
-            Timer
-            if Timer < 10:
-                Timeout  = str(Timer).ljust(1)
-            printScreen(2, f"{Timeout}s.")
+            printScreen(2, f"{Timer}s.")
             Timer -= 1
             # timeout
             if not Timer:
@@ -346,13 +346,17 @@ def checkData_offline():
                         "CURRENT_RANGE": CURRENT_RANGE,
                         "TIMESTAMP": _data["TIMESTAMP"],
                         "SIGNATURE": _data["SIGNATURE"],
-                        "WEIGHT":  _data["WEIGHT"]
+                        "WEIGHT":  _data["WEIGHT"],
+                        "TYPE": _data["TYPE"]
                     }
 
                     sendData_sheets(SCRIPT_ID, DATA_LIST) # ส่งข้อมูล
 
                     tabletName_cache.append(_data["TABLET_ID"]) # เก็บหมายเลขเครื่องตอกที่ถูกส่งข้อมูล offline
                     deleted_cache.append(_data) # เก็บ _data ไว้ในลิสต์ที่จะลบ
+
+                else:
+                    return "failed"
         
             if deleted_cache:
                 # ลบ _data ที่ถูกเก็บไว้ในลิสต์ to_be_deleted ออกจาก offline_data
@@ -361,7 +365,7 @@ def checkData_offline():
                 write_json(OFFLINE_JSON_DIR, {"DATA": offline_data})   
 
                 tabletName_cache = list(set(tabletName_cache)) # ลบรายการเครื่องตอกที่ซ้ำออก
-                tablet_msg = ', '.join(['T' + str(num) for num in tabletName_cache]) # รายชื่อเครื่องตอกที่ถูกส่งข้อมูล offline     
+                tablet_msg = ', '.join([str(num) for num in tabletName_cache]) # รายชื่อเครื่องตอกที่ถูกส่งข้อมูล offline     
                 msg_Notify = '\n🔰 มีข้อมูล offline เพิ่มเข้ามาไหม่ \n' +\
                     '🔰 ระบบเครื่องชั่ง IPC \n' +\
                     '🔰 เครื่องตอก: '+ tablet_msg + '\n' +\
@@ -481,6 +485,7 @@ def login():
             printScreen(3, "...RFID SCAN...")
 
             id = input("RFID: ")
+            buzzer.beep(0.1, 0.1, 1)
             printScreen(1,f"ID: {id}")
 
             result = list(filter(lambda item: (
@@ -495,6 +500,7 @@ def login():
                 return result[0]
             
             else:
+                buzzer.beep(0.1, 0.1, 5)
                 print(f"ไม่พบข้อมูล id {id}")
                 printScreen(3, "id not found")
                 sleep(1)
@@ -542,7 +548,7 @@ def sendData_sheets(SCRIPT_ID, DATA_LIST):
         return False
     
 # อ่านค่าน้ำหนักจากเครื่องชั่ง
-def getWeight(USERNAME=None, TABLET_ID=15, Max_Tab=20, Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
+def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
     
     dataWeight = []  # เก็บค่าน้ำหนัก
     # sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
@@ -557,10 +563,6 @@ def getWeight(USERNAME=None, TABLET_ID=15, Max_Tab=20, Min_AVG=0, Max_AVG=0, Min
         print(f"\n{str(date_time)}")
         print("READY:", TABLET_ID)
         sleep(0.2)
-        
-        led1.off()
-        led2.off()
-        led3.off()
 
         # อ่านค่าจาก port rs232
         # w = sr.readline()
@@ -577,7 +579,6 @@ def getWeight(USERNAME=None, TABLET_ID=15, Max_Tab=20, Min_AVG=0, Max_AVG=0, Min
         weight = round(float(currentWeight), 3)
         
         printScreen(0, "Wait.... ")
-        sleep(0.2)
 
         Timestamp = datetime.now().strftime("%H:%M:%S")
         dataWeight.append([Timestamp, weight])
@@ -587,6 +588,8 @@ def getWeight(USERNAME=None, TABLET_ID=15, Max_Tab=20, Min_AVG=0, Max_AVG=0, Min
 
         with canvas(led_scr) as draw:
             text(draw, (7, 0), '%.3f' % weight, fill="red", font=proportional(TINY_FONT))
+        
+        sleep(0.5)
 
         # รีเซ็ตโปรแกรม
         if weight < 0.005:
@@ -596,16 +599,20 @@ def getWeight(USERNAME=None, TABLET_ID=15, Max_Tab=20, Min_AVG=0, Max_AVG=0, Min
             print("Reset!")
             quit()
 
-        # ไฟแสดงค่า LED1_GREEN,LED2_ORANGE,LED3_RED
-        elif weight >= Min_AVG and weight <= Max_AVG:
-            led1.on()
-            print("ผ่าน อยู่ในช่วงที่กำหนด")
-        elif weight >= Min_Control and weight <= Max_Control:
-            led2.on()
-            print("ผ่าน อยู่ในช่วงที่กฏหมายกำหนด")
-        else:
-            led3.on()
-            print("ไม่ผ่าน")
+        if Min_AVG and Max_AVG and Min_Control and Max_Control:
+            # ไฟแสดงค่า LED1_GREEN,LED2_ORANGE,LED3_RED
+            if weight >= Min_AVG and weight <= Max_AVG:
+                print("ผ่าน อยู่ในช่วงที่กำหนด")
+            elif weight >= Min_Control and weight <= Max_Control:
+                with canvas(led_scr) as draw:
+                    dotmatrix(draw, (4, 0), led_notpass, fill="red")
+                buzzer.beep(0.1, 0.1, 5, background=False)
+                print("ผ่าน อยู่ในช่วงที่กฏหมายกำหนด")
+            else:
+                with canvas(led_scr) as draw:
+                    dotmatrix(draw, (4, 0), led_notpass, fill="red")
+                buzzer.beep(0.1, 0.1, 5, background=False)
+                print("ไม่ผ่าน")
 
     weight_obj = {
         "TABLET_ID": TABLET_ID,
@@ -616,14 +623,19 @@ def getWeight(USERNAME=None, TABLET_ID=15, Max_Tab=20, Min_AVG=0, Max_AVG=0, Min
     }
 
     sleep(2)
+    led_scr.clear()
     return weight_obj
 
 # สรุปผล
 def weightSummary(Min_W=0, Max_W=0, AVG_W=0, status=None):
     if status == "OFFLINE":
-        led3.blink()
+        buzzer.beep(0.5, 0.5, 5)
+        with canvas(led_scr) as draw:
+                dotmatrix(draw, (1, 0), led_offline_th, fill="red")
+    elif status == "ONLINE":
+        with canvas(led_scr) as draw:
+                dotmatrix(draw, (2, 0), led_online_th, fill="red")
 
-    led_scr.clear()
     lcd.clear()
     printScreen(0, "WEIGHT VARIATION")
     printScreen(1, f"<< {status} >>")
@@ -633,13 +645,11 @@ def weightSummary(Min_W=0, Max_W=0, AVG_W=0, status=None):
 
 # โปรแกรมหลัก
 def main():
+    with canvas(led_scr) as draw:
+        text(draw, (4, 0), "PCL V.4", fill="red", font=proportional(TINY_FONT))
+
     logout() # ล้างข้อมูลผู้ใช้งาน
     lcd.clear()
-    led1.blink()
-    sleep(0.5)
-    led2.blink()
-    sleep(0.5)
-    led3.blink()
     print("WEIGHT VARIATION")
     print("Loading....")
     textEnd(0, "WEIGHT VARIATION")
@@ -680,19 +690,22 @@ def main():
                 # อัพเดพข้อมูลรายชื่อ
                 printScreen(1, "SELECT TABLET ID")
                 # ป้อนหมายเลขเครื่องตอก
-                # TABLET_ID = readKeypad("TABLET_ID: ")
-                TABLET_ID = input("TabletID: ")
+                TABLET_ID = readKeypad("TabletID")
+                TABLET_ID = f"T{TABLET_ID}"
+                # TABLET_ID = input("TabletID: ")
                 WEIGHTTABLE_LIST = checkSheetID(TABLET_ID)
                 if not WEIGHTTABLE_LIST:
                     printScreen(3, "Tablet not found")
+                    buzzer.beep(0.1, 0.1, 5)
                     sleep(1)
 
-            printScreen(2, f"T{TABLET_ID}")
+            printScreen(2, TABLET_ID)
             update_setting_data(WEIGHTTABLE_LIST) # อัพเดทฐานข้อมูลการตั้งค่า
 
             # ตรวจหาข้อมูล
             get_setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
             setting_data = next((item for item in get_setting_data['SETTING'] if item['tabletID'] == str(TABLET_ID)), None)
+            print("Setting_DATA:", setting_data)
 
             # มีข้อมูลการตั้งค่าน้ำหนักยา
             if setting_data:
@@ -709,9 +722,10 @@ def main():
                 weight = getWeight(nameTH, TABLET_ID, Max_Tab, Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
             else:
                 # ป้อนจำนวนเม็ดที่ต้องชั่ง
-                # Max_Tab = readKeypad("AMOUNT: ")
                 printScreen(1, "SELECT TABLET ID")
-                Max_Tab = input("AMOUNT: ")
+                Max_Tab = readKeypad("AMOUNT")
+                sleep(1)
+                # Max_Tab = input("AMOUNT: ")
                 lcd.clear() # เคลียร์หน้าจอ
                 weight = getWeight(nameTH, TABLET_ID, Max_Tab)        
 
@@ -762,24 +776,23 @@ def main():
             # แจ้งเตือนไลน์
             if lineAlert:
                 if AVG_W >= Min and AVG_W <= Max:
-                    led1.blink()
-                    led2.off()
-                    led3.off()
                     averageOutOfRange = False
+                    with canvas(led_scr) as draw:
+                        dotmatrix(draw, (4, 0), led_passed, fill="red")
                     textEnd(1, "<<Very Good>>")
-
                 elif AVG_W >= Min_DVT and AVG_W <= Max_DVT:
-                    led1.off()
-                    led2.blink()
-                    led3.off()
                     averageOutOfRange = True
+                    with canvas(led_scr) as draw:
+                        dotmatrix(draw, (4, 0), led_notpass, fill="red")
+                    
+                    buzzer.beep(0.5, 0.5, 5)
                     textEnd(1, "<<Failed!>>")
-
                 else:
-                    led1.off()
-                    led2.off()
-                    led3.blink()
                     averageOutOfRange = True
+                    with canvas(led_scr) as draw:
+                        dotmatrix(draw, (4, 0), led_notpass, fill="red")
+
+                    buzzer.beep(0.5, 0.5, 5)
                     textEnd(1, "<<Failed!>>")
 
                 timestamp_alert = str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))
