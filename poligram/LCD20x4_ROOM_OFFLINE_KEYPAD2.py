@@ -512,6 +512,51 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         else:
             sleep(1)
 
+def addTickness(min=0, max=0):
+    Tickness = [] # เก็บข้อมูลความหนาของเม็ดยา
+
+    while len(Tickness) < 10:
+        for i in range(len(keypad_rows)):
+            gpio_out = keypad_rows[i]
+            GPIO.output(gpio_out, GPIO.HIGH)
+
+            for x in range(len(keypad_cols)):
+                gpio_in = keypad_cols[x]
+                # on GPIO checkkey 
+                if (GPIO.input(gpio_in) == 1):
+                    buzzer.beep(0.1, 0.1, 1)
+                    key = keypad[i][x]
+                    Timer = 60
+
+                    if key == "*" or key == "#":
+                        keypad_cache += "."
+                    if key != "A" and key != "B" and key != "C" and key != "D" and len(keypad_cache) < 5:
+                        keypad_cache += key
+                    elif key == "D" and keypad_cache:
+                        keypad_cache = keypad_cache[0:-1] # ลบ
+                    elif key == "C" and keypad_cache:
+                        Tickness.append(keypad_cache)
+                    else:
+                        pass
+
+                    with canvas(led_scr) as draw:
+                        text(draw, (8, 0), keypad_cache, fill="red", font=proportional(TINY_FONT))
+
+                    sleep(0.3)
+
+            # off GPIO checkkey            
+            GPIO.output(gpio_out, GPIO.LOW)
+
+        # จับเวลา
+        currentMillis = time()
+        if currentMillis - previousMillis > 1:
+            previousMillis = currentMillis
+            printScreen(2, f"{Timer}s.")
+            Timer -= 1
+            # timeout
+            if not Timer:
+                quit()
+
 # สรุปผล
 def weightSummary(Min_W, Max_W, AVG_W, status):
     if status == "OFFLINE":

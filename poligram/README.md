@@ -33,3 +33,7 @@ sudo pip3 install RPLCD
 #sudo apt-get install python-smbus
 sudo pip install smbus2
 sudo apt-get install pigpio python-pigpio python3-pigpio
+
+#####   install Keypad 4x4    #####
+keypad_rows = [22, 27, 18, 17]
+keypad_cols = [20, 16, 26, 19]

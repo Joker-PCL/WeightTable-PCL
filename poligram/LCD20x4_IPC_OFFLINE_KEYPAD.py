@@ -29,7 +29,7 @@ from RPLCD.i2c import CharLCD
 from gpiozero import LED, Buzzer
 import RPi.GPIO as GPIO
 
-buzzer = Buzzer(26)
+buzzer = Buzzer(21)
 
 lcd = CharLCD('PCF8574', 0x27)  # address lcd 20x4
 
@@ -42,7 +42,7 @@ from luma.core.legacy.font import proportional, TINY_FONT
 
 serialSCR = spi(port=0, device=0, gpio=noop())
 led_scr = max7219(serialSCR, cascaded=4, block_orientation=90, blocks_arranged_in_reverse_order=True)
-led_scr.contrast(10)
+led_scr.contrast(20)
 
 led_passed = [0xf8, 0x58, 0x40, 0xfb,
           0x00, 0x08, 0x08, 0xf8,
@@ -127,7 +127,7 @@ TABLET_LIST = [
 ]
 
 keypad_rows = [22, 27, 18, 17]
-keypad_cols = [19, 13, 12, 25]
+keypad_cols = [20, 16, 26, 19]
 
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
@@ -551,7 +551,7 @@ def sendData_sheets(SCRIPT_ID, DATA_LIST):
 def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
     
     dataWeight = []  # เก็บค่าน้ำหนัก
-    # sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
+    sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
 
     while len(dataWeight) < int(Max_Tab):
         now = datetime.now()
@@ -565,10 +565,9 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0,
         sleep(0.2)
 
         # อ่านค่าจาก port rs232
-        # w = sr.readline()
-        # w = random(0.155, 0.165)
-        currentWeight = str(random.uniform(0.170,0.210))
-        # currentWeight = w.decode('ascii', errors='ignore')
+        w = sr.readline()
+        # currentWeight = str(random.uniform(0.170,0.210))
+        currentWeight = w.decode('ascii', errors='ignore')
         currentWeight = currentWeight.replace("?", "").strip().upper()
         currentWeight = currentWeight.replace("G", "").strip()
         currentWeight = currentWeight.replace("N", "").strip()
