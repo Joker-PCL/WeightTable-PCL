@@ -580,7 +580,8 @@ def addThickness(minTn=0, maxTn=0):
                             led_scr.clear()
                             Timer = setTimerB
                             select_mode = False
-                        elif key != "B":
+                        elif key == "B":
+                            lcd.clear()
                             led_scr.clear()
                             return
                     else:
