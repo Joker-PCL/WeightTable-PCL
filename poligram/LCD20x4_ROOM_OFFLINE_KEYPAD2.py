@@ -741,7 +741,9 @@ def main():
             checkData_offline() # ตรวจสอบและส่งข้อมูล offline
             status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
             
-            if not status:
+            if status:
+                lineAlert = True # สถานะการส่งไลน์
+            else:
                 packetdata_arr[1] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
                 update_json(OFFLINE_JSON_DIR, packetdata_arr[0:8]) # บันทึกข้อมูล 1-7 ไปยัง offline.json 
 
@@ -751,16 +753,19 @@ def main():
             Max_W = max(weight_cache)
             AVG_W = round(sum(weight_cache)/len(weight_cache), 3)
 
+            # สรุปผล
             weightSummary(Min_W, Max_W, AVG_W, packetdata_arr[1])
 
             # มีข้อมูลการตั้งค่าน้ำหนักยา
             if setting_data["productName"]:
                 if AVG_W >= Min and AVG_W <= Max:
+                    averageOutOfRange = False
                     with canvas(led_scr) as draw:
                         dotmatrix(draw, (4, 0), led_passed, fill="red")
                     textEnd(1, "<<Very Good>>")
 
                 elif AVG_W >= Min_DVT and AVG_W <= Max_DVT:
+                    averageOutOfRange = True
                     with canvas(led_scr) as draw:
                         dotmatrix(draw, (4, 0), led_notpass, fill="red")
 
@@ -768,12 +773,15 @@ def main():
                     textEnd(1, "<<Failed!>>")
 
                 else:
+                    averageOutOfRange = True
                     with canvas(led_scr) as draw:
                         dotmatrix(draw, (4, 0), led_notpass, fill="red")
 
                     buzzer.beep(0.5, 0.5, 5)
                     textEnd(1, "<<Failed!>>")
 
+                # แจ้งเตือนไลน์
+                if lineAlert and averageOutOfRange:
                     meseage = 'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+\
                         '\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด('+str('%.3f' % Min_DVT)+\
                         'g. - '+str('%.3f' % Max_DVT)+'g.)'
