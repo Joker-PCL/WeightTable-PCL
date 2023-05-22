@@ -29,8 +29,9 @@ from RPLCD.i2c import CharLCD
 from gpiozero import LED, Buzzer
 import RPi.GPIO as GPIO
 
-buzzer = Buzzer(21)
-
+buzzer = Buzzer(21) # BUZZER
+RFID = LED(23) # RFID SWITCH
+ 
 lcd = CharLCD('PCF8574', 0x27)  # address lcd 20x4
 
 # LED Dotmatrix
@@ -139,7 +140,7 @@ for i in range(len(keypad_rows)):
 keypad = [["1", "2", "3", "A"],
           ["4", "5", "6", "B"],
           ["7", "8", "9", "C"],
-          ["*", "0", "#", "D"]]
+          [".", "0", ".", "D"]]
 
 # แสดงข้อความ dot matrix
 def dotmatrix(draw, xy, txt, fill=None):
@@ -480,6 +481,8 @@ def login():
         print("<< LOGIN >>")
         print("Please scan your RFID card...")
         
+        RFID.on() # เปิดการทำงาน RFID Reader
+
         while True:
             printScreen(1, "<< LOGIN >>")
             printScreen(3, "...RFID SCAN...")
@@ -497,6 +500,7 @@ def login():
                 write_json(DATABASE_JSON_DIR, jsonData)
                 printScreen(3, result[0]["nameEN"])
                 sleep(1)
+                RFID.off() # ปิดการทำงาน RFID Reader
                 return result[0]
             
             else:

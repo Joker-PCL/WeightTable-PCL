@@ -11,9 +11,7 @@
 
 import json
 import random
-
-import json
-import random
+import re
 
 # from __future__ import print_function
 import pickle
@@ -33,7 +31,8 @@ from RPLCD.i2c import CharLCD
 from gpiozero import LED, Buzzer
 import RPi.GPIO as GPIO
 
-buzzer = Buzzer(21)
+buzzer = Buzzer(21) # BUZZER
+RFID = LED(23) # RFID SWITCH
 
 lcd = CharLCD('PCF8574', 0x27)  # address lcd 20x4
 
@@ -132,7 +131,7 @@ for i in range(len(keypad_rows)):
 keypad = [["1", "2", "3", "A"],
           ["4", "5", "6", "B"],
           ["7", "8", "9", "C"],
-          ["*", "0", "#", "D"]]
+          [".", "0", ".", "D"]]
 
 # อ่านค่า KEYPAD 4x4
 def readKeypad(Message):
@@ -197,6 +196,37 @@ def dotmatrix(draw, xy, txt, fill=None):
 
             byte >>= 1
         x += 1
+
+# แสดงผลค่าความหนา
+def screen(total_tickness, tickness):
+    for i in range(0, 50, 6):
+        if len(total_tickness) == i+1:
+            lcd.clear()
+            lcd.cursor_pos = (1, 0)
+            lcd.write_string(f"{len(total_tickness)}){tickness}")
+            break
+        elif len(total_tickness) == i+2:
+            lcd.cursor_pos = (2, 0)
+            lcd.write_string(f"{len(total_tickness)}){tickness}")
+            break
+        elif len(total_tickness) == i+3:
+            lcd.cursor_pos = (3, 0)
+            lcd.write_string(f"{len(total_tickness)}){tickness}")
+            break
+        elif len(total_tickness) == i+4:
+            lcd.cursor_pos = (1, 11)
+            lcd.write_string(f"{len(total_tickness)}){tickness}")
+            break
+        elif len(total_tickness) == i+5:
+            lcd.cursor_pos = (2, 11)
+            lcd.write_string(f"{len(total_tickness)}){tickness}")
+            break
+        elif len(total_tickness) == i+6:
+            lcd.cursor_pos = (3, 11)
+            lcd.write_string(f"{len(total_tickness)}){tickness}")
+            break
+        else:
+            continue
 
 # แสดงผลหน้าจอ
 def printScreen(row, text):
@@ -362,6 +392,8 @@ def login():
         print("<< LOGIN >>")
         print("Please scan your RFID card...")
         
+        RFID.on() # เปิดการทำงาน RFID Reader
+
         while True:
             printScreen(1, "<< LOGIN >>")
             printScreen(3, "...RFID SCAN...")
@@ -379,6 +411,7 @@ def login():
                 write_json(DATABASE_JSON_DIR, jsonData)
                 printScreen(3, result[0]["nameEN"] + " " + TABLET_ID)
                 sleep(1)
+                RFID.off() # ปิดการทำงาน RFID Reader
                 return result[0]
             
             else:
@@ -425,7 +458,7 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
     
     dataWeight = []  # เก็บค่าน้ำหนัก
     clearScreen(3)
-    sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
+#     sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
     
     while len(dataWeight) < 2:
         now = datetime.now()
@@ -439,10 +472,10 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         sleep(0.2)
 
         # อ่านค่าจาก port rs232
-        w = sr.readline()
+#         w = sr.readline()
         # w = random(0.155, 0.165)
-        # currentWeight = str(random.uniform(0.155,0.165))
-        currentWeight = w.decode('ascii', errors='ignore')
+        currentWeight = str(random.uniform(0.155,0.165))
+#         currentWeight = w.decode('ascii', errors='ignore')
         currentWeight = currentWeight.replace("?", "").strip().upper()
         currentWeight = currentWeight.replace("G", "").strip()
         currentWeight = currentWeight.replace("N", "").strip()
@@ -462,7 +495,7 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
                 clearScreen(3, 9, 10)
                 lcd.cursor_pos = (3, 0)
             else: 
-                lcd.cursor_pos = (3, 11)
+                lcd.cursor_pos = (3, 12)
             lcd.write_string(f"{len(dataWeight)}){str('%.3f' % weight)}")
 
         buzzer.beep(0.1, 0.1, 1)
@@ -512,10 +545,24 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         else:
             sleep(1)
 
-def addTickness(min=0, max=0):
-    Tickness = [] # เก็บข้อมูลความหนาของเม็ดยา
-
-    while len(Tickness) < 10:
+# ลงข้อมูลความหนาของเม็ดยา
+def addThickness(minTn=0, maxTn=0):
+    Thickness = [] # เก็บข้อมูลความหนาของเม็ดยา
+    currentMillis = 0
+    previousMillis = 0
+    setTimerA = 300  # settimeout sec.
+    setTimerB = 120  # settimeout sec.
+    Timer = setTimerA
+    keypad_cache = ""
+    
+    lcd.clear()
+    select_mode = True
+    
+    printScreen(0, "ADD THICKNESS")
+    printScreen(1, "INFORMATION")
+    printScreen(3, "<A.OK>        <B.NO>")
+    
+    while True:
         for i in range(len(keypad_rows)):
             gpio_out = keypad_rows[i]
             GPIO.output(gpio_out, GPIO.HIGH)
@@ -526,36 +573,75 @@ def addTickness(min=0, max=0):
                 if (GPIO.input(gpio_in) == 1):
                     buzzer.beep(0.1, 0.1, 1)
                     key = keypad[i][x]
-                    Timer = 60
-
-                    if key == "*" or key == "#":
-                        keypad_cache += "."
-                    if key != "A" and key != "B" and key != "C" and key != "D" and len(keypad_cache) < 5:
-                        keypad_cache += key
-                    elif key == "D" and keypad_cache:
-                        keypad_cache = keypad_cache[0:-1] # ลบ
-                    elif key == "C" and keypad_cache:
-                        Tickness.append(keypad_cache)
+                    
+                    if select_mode:    
+                        if key == "A":
+                            lcd.clear()
+                            led_scr.clear()
+                            Timer = setTimerB
+                            select_mode = False
+                        elif key != "B":
+                            led_scr.clear()
+                            return
                     else:
-                        pass
-
-                    with canvas(led_scr) as draw:
-                        text(draw, (8, 0), keypad_cache, fill="red", font=proportional(TINY_FONT))
+                        Timer = setTimerB
+                        if key != "A" and key != "B" and key != "C" and key != "D" and len(keypad_cache) < 4:
+                            keypad_cache = re.sub(r'\.+', '.', keypad_cache) + key
+                        elif key == "D" and keypad_cache:
+                            keypad_cache = keypad_cache[0:-1] # ลบ
+                        elif key == "C" and keypad_cache:
+                            Tn = float(keypad_cache)
+                            if Tn > 10 or len(keypad_cache) != 4:
+                                buzzer.beep(0.1, 0.1, 5)
+                            else:
+                                if minTn and maxTn:
+                                    if Tn < minTn or Tn > maxTn:
+                                        with canvas(led_scr) as draw:
+                                            dotmatrix(draw, (4, 0), led_notpass, fill="red")
+                                        buzzer.beep(0.1, 0.1, 5, background=False)
+                                
+                                keypad_cache = '%.2f' % Tn
+                                Thickness.append(keypad_cache)
+                                screen(Thickness, f"{keypad_cache}mm")
+                                keypad_cache = ""
+                        else:
+                            pass
+                
+                        with canvas(led_scr) as draw:
+                            if keypad_cache:
+                                text(draw, (7-len(keypad_cache)+3, 0), f"{keypad_cache}mm", fill="red", font=proportional(TINY_FONT))
 
                     sleep(0.3)
 
             # off GPIO checkkey            
             GPIO.output(gpio_out, GPIO.LOW)
-
+            
+        if len(Thickness) == 10:
+            return Thickness
+        
         # จับเวลา
         currentMillis = time()
         if currentMillis - previousMillis > 1:
             previousMillis = currentMillis
-            printScreen(2, f"{Timer}s.")
+            
+            if select_mode:
+                Timer_text = f"{Timer}s."
+                with canvas(led_scr) as draw:
+                    text(draw, (10-len(Timer_text)+3, 0), Timer_text, fill="red", font=proportional(TINY_FONT))
+            else:
+                Timer_text = f"Timeout {Timer}s."
+                if Timer == 9 or Timer == 99:   
+                    clearScreen(0)
+                    
+                lcd.cursor_pos = (0, int((20-len(Timer_text))/2))
+                lcd.write_string(Timer_text)
+                
             Timer -= 1
+            if Timer > 15:
+                buzzer.beep(0.5, 0.5, 1) 
             # timeout
             if not Timer:
-                quit()
+                return
 
 # สรุปผล
 def weightSummary(Min_W, Max_W, AVG_W, status):
@@ -625,10 +711,14 @@ def main():
                 Max = float(setting_data["max"])
                 Min_DVT = float(setting_data["min_control"])
                 Max_DVT = float(setting_data["max_control"])
+                min_Tickness = float(setting_data["min_thickness"])
+                max_Tickness = float(setting_data["max_thickness"])
             
                 weight = getWeight(Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+                thickness = addThickness(min_Tickness, max_Tickness) # เพิ่มข้อมูลความหนาของเม็ดยา
             else:
-                weight = getWeight()              
+                weight = getWeight() # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+                thickness = addThickness() # เพิ่มข้อมูลความหนาของเม็ดยา             
 
             # สร้างข้อมูลเตรียมส่งบันทึก
             packetdata_arr = [
@@ -640,9 +730,13 @@ def main():
                 None,
                 "ไม่ระบุ",
                 nameTH,
+                "-"
             ]
 
-            packetdata_arr.extend(["-"] * 11) # เพิ่ม - เข้า packetdata_arr 11 ตัว
+            if thickness:
+                packetdata_arr.extend(thickness) # เพิ่มข้อมูลความหนาของเม็ดยาเข้าไปใน packetdata
+            else:
+                packetdata_arr.extend(["-"] * 10) # เพิ่ม - เข้า packetdata_arr 11 ตัว
             checkData_offline() # ตรวจสอบและส่งข้อมูล offline
             status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
             
@@ -657,7 +751,6 @@ def main():
             AVG_W = round(sum(weight_cache)/len(weight_cache), 3)
 
             weightSummary(Min_W, Max_W, AVG_W, packetdata_arr[1])
-            logout() # ออกจากระบบ
 
             # มีข้อมูลการตั้งค่าน้ำหนักยา
             if setting_data["productName"]:
