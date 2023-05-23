@@ -29,10 +29,11 @@ from RPLCD.i2c import CharLCD
 from gpiozero import LED, Buzzer
 import RPi.GPIO as GPIO
 
-buzzer = Buzzer(21) # BUZZER
+BUZZER = Buzzer(24) # BUZZER
 RFID = LED(23) # RFID SWITCH
+BUZZER.beep(0.1, 0.1, 1)
  
-lcd = CharLCD('PCF8574', 0x27)  # address lcd 20x4
+LCD = CharLCD('PCF8574', 0x27)  # address LCD 20x4
 
 # LED Dotmatrix
 from luma.led_matrix.device import max7219
@@ -42,8 +43,8 @@ from luma.core.legacy import text, show_message
 from luma.core.legacy.font import proportional, TINY_FONT
 
 serialSCR = spi(port=0, device=0, gpio=noop())
-led_scr = max7219(serialSCR, cascaded=4, block_orientation=90, blocks_arranged_in_reverse_order=True)
-led_scr.contrast(20)
+LED_SCR = max7219(serialSCR, cascaded=4, block_orientation=90, blocks_arranged_in_reverse_order=True)
+LED_SCR.contrast(20)
 
 led_passed = [0xf8, 0x58, 0x40, 0xfb,
           0x00, 0x08, 0x08, 0xf8,
@@ -160,8 +161,8 @@ def readKeypad(Message):
     Timer = 60  # settimeout sec.
     keypad_cache = ""
     text = f"{Message}:"
-    lcd.cursor_pos = (3, 0)
-    lcd.write_string(text.ljust(20))
+    LCD.cursor_pos = (3, 0)
+    LCD.write_string(text.ljust(20))
 
     while Timer:
         for i in range(len(keypad_rows)):
@@ -172,7 +173,7 @@ def readKeypad(Message):
                 gpio_in = keypad_cols[x]
                 # on GPIO checkkey 
                 if (GPIO.input(gpio_in) == 1):
-                    buzzer.beep(0.1, 0.1, 1)
+                    BUZZER.beep(0.1, 0.1, 1)
                     key = keypad[i][x]
                     Timer = 60
 
@@ -189,8 +190,8 @@ def readKeypad(Message):
 
                     text = f"{Message}: {keypad_cache}"
                     text = text.ljust(20)
-                    lcd.cursor_pos = (3, 0)
-                    lcd.write_string(text)
+                    LCD.cursor_pos = (3, 0)
+                    LCD.write_string(text)
                     sleep(0.3)
 
             # off GPIO checkkey            
@@ -218,29 +219,29 @@ def checkSheetID(TABLET_ID):
 def screen(total_weight, weight):
     for i in range(0, 50, 6):
         if len(total_weight) == i+1:
-            lcd.clear()
-            lcd.cursor_pos = (1, 0)
-            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            LCD.clear()
+            LCD.cursor_pos = (1, 0)
+            LCD.write_string(str(len(total_weight))+")"+str(weight))
             break
         elif len(total_weight) == i+2:
-            lcd.cursor_pos = (2, 0)
-            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            LCD.cursor_pos = (2, 0)
+            LCD.write_string(str(len(total_weight))+")"+str(weight))
             break
         elif len(total_weight) == i+3:
-            lcd.cursor_pos = (3, 0)
-            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            LCD.cursor_pos = (3, 0)
+            LCD.write_string(str(len(total_weight))+")"+str(weight))
             break
         elif len(total_weight) == i+4:
-            lcd.cursor_pos = (1, 12)
-            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            LCD.cursor_pos = (1, 12)
+            LCD.write_string(str(len(total_weight))+")"+str(weight))
             break
         elif len(total_weight) == i+5:
-            lcd.cursor_pos = (2, 12)
-            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            LCD.cursor_pos = (2, 12)
+            LCD.write_string(str(len(total_weight))+")"+str(weight))
             break
         elif len(total_weight) == i+6:
-            lcd.cursor_pos = (3, 12)
-            lcd.write_string(str(len(total_weight))+")"+str(weight))
+            LCD.cursor_pos = (3, 12)
+            LCD.write_string(str(len(total_weight))+")"+str(weight))
             break
         else:
             continue
@@ -248,22 +249,22 @@ def screen(total_weight, weight):
 # แสดงผลหน้าจอ
 def printScreen(row, text):
     clearScreen(row)
-    lcd.cursor_pos = (row, int((20-len(text))/2))
-    lcd.write_string(text)
+    LCD.cursor_pos = (row, int((20-len(text))/2))
+    LCD.write_string(text)
 
 # แสดงผลแบบเรียงอักษร
 def textEnd(row, text):
     clearScreen(row)
     for i in range(len(text)):
-        lcd.cursor_pos = (row, int((20-len(text))/2)+i)
-        lcd.write_string(text[i])
+        LCD.cursor_pos = (row, int((20-len(text))/2)+i)
+        LCD.write_string(text[i])
         sleep(0.15)
 
 # ลบอักษรหน้าจอแบบกำหนด แถว ตำแหน่ง จำนวน
 def clearScreen(row, col=0, numcol=20):
     text = ""
-    lcd.cursor_pos = (row, col)
-    lcd.write_string(text.rjust(numcol, " "))
+    LCD.cursor_pos = (row, col)
+    LCD.write_string(text.rjust(numcol, " "))
 
 # ส่งไลน์แจ้งเตือน
 def lineNotify(Message):
@@ -488,12 +489,12 @@ def login():
             printScreen(3, "...RFID SCAN...")
 
             id = input("RFID: ")
-            buzzer.beep(0.1, 0.1, 1)
             printScreen(1,f"ID: {id}")
 
             result = list(filter(lambda item: (
                         item['rfid']) == id, jsonData["DATA"]))
             if result:
+                BUZZER.beep(0.1, 0.1, 1)
                 for key in jsonData["LOGIN_IPC"]:
                     jsonData["LOGIN_IPC"][key] = result[0][key]
 
@@ -504,7 +505,7 @@ def login():
                 return result[0]
             
             else:
-                buzzer.beep(0.1, 0.1, 5)
+                BUZZER.beep(0.1, 0.1, 5)
                 print(f"ไม่พบข้อมูล id {id}")
                 printScreen(3, "id not found")
                 sleep(1)
@@ -587,16 +588,16 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0,
         dataWeight.append([Timestamp, weight])
         print(str(len(dataWeight))+")"+str(weight))
         screen(dataWeight, '%.3f' % weight)
-        buzzer.beep(0.1, 0.1, 1)
+        BUZZER.beep(0.1, 0.1, 1)
 
-        with canvas(led_scr) as draw:
+        with canvas(LED_SCR) as draw:
             text(draw, (7, 0), '%.3f' % weight, fill="red", font=proportional(TINY_FONT))
         
         sleep(0.5)
 
         # รีเซ็ตโปรแกรม
         if weight < 0.005:
-            lcd.clear()
+            LCD.clear()
             printScreen(0, "WEIGHT VARIATION")
             textEnd(1, "Restart.....")
             print("Reset!")
@@ -607,14 +608,14 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0,
             if weight >= Min_AVG and weight <= Max_AVG:
                 print("ผ่าน อยู่ในช่วงที่กำหนด")
             elif weight >= Min_Control and weight <= Max_Control:
-                with canvas(led_scr) as draw:
+                with canvas(LED_SCR) as draw:
                     dotmatrix(draw, (4, 0), led_notpass, fill="red")
-                buzzer.beep(0.1, 0.1, 5, background=False)
+                BUZZER.beep(0.1, 0.1, 5, background=False)
                 print("ผ่าน อยู่ในช่วงที่กฏหมายกำหนด")
             else:
-                with canvas(led_scr) as draw:
+                with canvas(LED_SCR) as draw:
                     dotmatrix(draw, (4, 0), led_notpass, fill="red")
-                buzzer.beep(0.1, 0.1, 5, background=False)
+                BUZZER.beep(0.1, 0.1, 5, background=False)
                 print("ไม่ผ่าน")
 
     weight_obj = {
@@ -626,20 +627,20 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0,
     }
 
     sleep(2)
-    led_scr.clear()
+    LED_SCR.clear()
     return weight_obj
 
 # สรุปผล
 def weightSummary(Min_W=0, Max_W=0, AVG_W=0, status=None):
     if status == "OFFLINE":
-        buzzer.beep(0.5, 0.5, 5)
-        with canvas(led_scr) as draw:
+        BUZZER.beep(0.5, 0.5, 5)
+        with canvas(LED_SCR) as draw:
                 dotmatrix(draw, (1, 0), led_offline_th, fill="red")
     elif status == "ONLINE":
-        with canvas(led_scr) as draw:
+        with canvas(LED_SCR) as draw:
                 dotmatrix(draw, (2, 0), led_online_th, fill="red")
 
-    lcd.clear()
+    LCD.clear()
     printScreen(0, "WEIGHT VARIATION")
     printScreen(1, f"<< {status} >>")
     textEnd(2, "MIN:"+ str('%.3f' % Min_W) + "  " + "MAX:" + str('%.3f' % Max_W))
@@ -648,11 +649,11 @@ def weightSummary(Min_W=0, Max_W=0, AVG_W=0, status=None):
 
 # โปรแกรมหลัก
 def main():
-    with canvas(led_scr) as draw:
+    with canvas(LED_SCR) as draw:
         text(draw, (4, 0), "PCL V.4", fill="red", font=proportional(TINY_FONT))
 
     logout() # ล้างข้อมูลผู้ใช้งาน
-    lcd.clear()
+    LCD.clear()
     print("WEIGHT VARIATION")
     print("Loading....")
     textEnd(0, "WEIGHT VARIATION")
@@ -699,7 +700,7 @@ def main():
                 WEIGHTTABLE_LIST = checkSheetID(TABLET_ID)
                 if not WEIGHTTABLE_LIST:
                     printScreen(3, "Tablet not found")
-                    buzzer.beep(0.1, 0.1, 5)
+                    BUZZER.beep(0.1, 0.1, 5)
                     sleep(1)
 
             printScreen(2, TABLET_ID)
@@ -721,7 +722,7 @@ def main():
                 Min_DVT = float(setting_data["min_dvt"])
                 Max_DVT = float(setting_data["max_dvt"])
 
-                lcd.clear() # เคลียร์หน้าจอ
+                LCD.clear() # เคลียร์หน้าจอ
                 weight = getWeight(nameTH, TABLET_ID, Max_Tab, Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
             else:
                 # ป้อนจำนวนเม็ดที่ต้องชั่ง
@@ -729,7 +730,7 @@ def main():
                 Max_Tab = readKeypad("AMOUNT")
                 sleep(1)
                 # Max_Tab = input("AMOUNT: ")
-                lcd.clear() # เคลียร์หน้าจอ
+                LCD.clear() # เคลียร์หน้าจอ
                 weight = getWeight(nameTH, TABLET_ID, Max_Tab)        
 
             # ค่า min,max,avg ของน้ำหนักที่ชั่ง
@@ -760,7 +761,7 @@ def main():
                     "WEIGHT":  weight["WEIGHT"]
                 }
 
-                lcd.clear() # ล้างหน้าจอ
+                LCD.clear() # ล้างหน้าจอ
                 checkData_offline() # ตรวจสอบและส่งข้อมูล offline
                 textEnd(3, "Sending data....")
                 status = sendData_sheets(SCRIPT_ID, DATA_LIST) # ส่งข้อมูลไปยัง google sheet
@@ -780,22 +781,22 @@ def main():
             if lineAlert:
                 if AVG_W >= Min and AVG_W <= Max:
                     averageOutOfRange = False
-                    with canvas(led_scr) as draw:
+                    with canvas(LED_SCR) as draw:
                         dotmatrix(draw, (4, 0), led_passed, fill="red")
                     textEnd(1, "<<Very Good>>")
                 elif AVG_W >= Min_DVT and AVG_W <= Max_DVT:
                     averageOutOfRange = True
-                    with canvas(led_scr) as draw:
+                    with canvas(LED_SCR) as draw:
                         dotmatrix(draw, (4, 0), led_notpass, fill="red")
                     
-                    buzzer.beep(0.5, 0.5, 5)
+                    BUZZER.beep(0.5, 0.5, 5)
                     textEnd(1, "<<Failed!>>")
                 else:
                     averageOutOfRange = True
-                    with canvas(led_scr) as draw:
+                    with canvas(LED_SCR) as draw:
                         dotmatrix(draw, (4, 0), led_notpass, fill="red")
 
-                    buzzer.beep(0.5, 0.5, 5)
+                    BUZZER.beep(0.5, 0.5, 5)
                     textEnd(1, "<<Failed!>>")
 
                 timestamp_alert = str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))
