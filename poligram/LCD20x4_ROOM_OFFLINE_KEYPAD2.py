@@ -707,7 +707,7 @@ def main():
             setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
             
             # มีข้อมูลการตั้งค่าน้ำหนักยา
-            if setting_data["productName"]:
+            if setting_data["productName"] and setting_data["productName"] != "xxxxx":
                 # ค่า min,max ที่กำหนด
                 Min = float(setting_data["min"])
                 Max = float(setting_data["max"])
@@ -760,7 +760,7 @@ def main():
             weightSummary(Min_W, Max_W, AVG_W, packetdata_arr[1])
 
             # มีข้อมูลการตั้งค่าน้ำหนักยา
-            if setting_data["productName"]:
+            if setting_data["productName"] and setting_data["productName"] != "xxxxx":
                 if AVG_W >= Min and AVG_W <= Max:
                     averageOutOfRange = False
                     with canvas(LED_SCR) as draw:
@@ -784,25 +784,28 @@ def main():
                     textEnd(1, "<<Failed!>>")
 
                 # แจ้งเตือนไลน์
-                if lineAlert and averageOutOfRange:
-                    meseage = 'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+\
-                        '\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด('+str('%.3f' % Min_DVT)+\
-                        'g. - '+str('%.3f' % Max_DVT)+'g.)'
+                if lineAlert:
+                    if averageOutOfRange:
+                        meseage = 'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+\
+                            '\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด('+str('%.3f' % Min_DVT)+\
+                            'g. - '+str('%.3f' % Max_DVT)+'g.)'
+                        
+                        # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+                        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[weight["time"], meseage]])
+        
+                        
+                        meseage_alert = '\n'+str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))+'\n'+\
+                            'ระบบเครื่องชั่ง 10 เม็ด'+'\n'+\
+                            'เครื่องตอก: '+TABLET_ID+'\n'+\
+                            'ชื่อยา: '+setting_data["productName"]+'\n'+\
+                            'Lot.'+setting_data["Lot"]+'\n'+\
+                            'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+'\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด'+'\n'+\
+                            '('+str('%.3f' % Min_DVT)+'g. - '+str('%.3f' % Max_DVT) + 'g.)'
+                        
+                        # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+                        lineNotify(meseage_alert)
                     
-                    # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                    sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[weight["time"], meseage]])
-    
-                    
-                    meseage_alert = '\n'+str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))+'\n'+\
-                        'ระบบเครื่องชั่ง 10 เม็ด'+'\n'+\
-                        'เครื่องตอก: '+TABLET_ID+'\n'+\
-                        'ชื่อยา: '+setting_data["productName"]+'\n'+\
-                        'Lot.'+setting_data["Lot"]+'\n'+\
-                        'ค่าเฉลี่ย '+str('%.3f' % AVG_W)+' g.'+'\n'+'ไม่ได้อยู่ในช่วงที่กฎหมายกำหนด'+'\n'+\
-                        '('+str('%.3f' % Min_DVT)+'g. - '+str('%.3f' % Max_DVT) + 'g.)'
-                    
-                    # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                    lineNotify(meseage_alert)
+                    # thickness
                 
     except Exception as e:
         print(f"<<main error>> \n {e} \n")
