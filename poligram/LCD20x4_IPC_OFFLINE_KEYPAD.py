@@ -29,8 +29,8 @@ from RPLCD.i2c import CharLCD
 from gpiozero import LED, Buzzer
 import RPi.GPIO as GPIO
 
-BUZZER = Buzzer(24) # BUZZER
 RFID = LED(23) # RFID SWITCH
+BUZZER = Buzzer(24) # BUZZER
 BUZZER.beep(0.1, 0.1, 1)
  
 LCD = CharLCD('PCF8574', 0x27)  # address LCD 20x4
@@ -158,7 +158,8 @@ def dotmatrix(draw, xy, txt, fill=None):
 def readKeypad(Message):
     currentMillis = 0
     previousMillis = 0
-    Timer = 60  # settimeout sec.
+    setTimer = 120  # settimeout sec.
+    Timer = setTimer
     keypad_cache = ""
     text = f"{Message}:"
     LCD.cursor_pos = (3, 0)
@@ -175,7 +176,7 @@ def readKeypad(Message):
                 if (GPIO.input(gpio_in) == 1):
                     BUZZER.beep(0.1, 0.1, 1)
                     key = keypad[i][x]
-                    Timer = 60
+                    Timer = setTimer
 
                     if key == "*" or  key == "#":
                         quit()
@@ -184,7 +185,11 @@ def readKeypad(Message):
                     elif key != "A" and key != "B" and key != "C" and key != "D" and len(keypad_cache) < 2:
                         keypad_cache = keypad_cache+key
                     elif key == "C" and keypad_cache:
-                        return keypad_cache
+                        amount = int(keypad_cache)
+                        if amount < 10 or amount > 50:
+                            BUZZER.beep(0.1, 0.1, 5)
+                        else:
+                            return keypad_cache
                     else:
                         pass
 
@@ -201,11 +206,21 @@ def readKeypad(Message):
         currentMillis = time()
         if currentMillis - previousMillis > 1:
             previousMillis = currentMillis
-            printScreen(2, f"{Timer}s.")
+
+            Timer_text = f"Timeout {Timer}s."
+            if Timer == 9 or Timer == 99:   
+                clearScreen(2)
+                
+            LCD.cursor_pos = (2, int((20-len(Timer_text))/2))
+            LCD.write_string(Timer_text)
+
             Timer -= 1
             # timeout
             if not Timer:
+                textEnd(0, "Restart...")
                 quit()
+            elif Timer < 15:
+                BUZZER.beep(0.5, 0.5, 1) 
 
 # ตรวจสอบ ID Sheets
 def checkSheetID(TABLET_ID):
@@ -556,7 +571,7 @@ def sendData_sheets(SCRIPT_ID, DATA_LIST):
 def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
     
     dataWeight = []  # เก็บค่าน้ำหนัก
-    sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
+    # sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
 
     while len(dataWeight) < int(Max_Tab):
         now = datetime.now()
@@ -570,9 +585,9 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0,
         sleep(0.2)
 
         # อ่านค่าจาก port rs232
-        w = sr.readline()
-        # currentWeight = str(random.uniform(0.170,0.210))
-        currentWeight = w.decode('ascii', errors='ignore')
+        # w = sr.readline()
+        currentWeight = str(random.uniform(0.650,0.685))
+        # currentWeight = w.decode('ascii', errors='ignore')
         currentWeight = currentWeight.replace("?", "").strip().upper()
         currentWeight = currentWeight.replace("G", "").strip()
         currentWeight = currentWeight.replace("N", "").strip()
@@ -638,7 +653,7 @@ def weightSummary(Min_W=0, Max_W=0, AVG_W=0, status=None):
                 dotmatrix(draw, (1, 0), led_offline_th, fill="red")
     elif status == "ONLINE":
         with canvas(LED_SCR) as draw:
-                dotmatrix(draw, (2, 0), led_online_th, fill="red")
+                dotmatrix(draw, (1, 0), led_online_th, fill="red")
 
     LCD.clear()
     printScreen(0, "WEIGHT VARIATION")
@@ -709,10 +724,9 @@ def main():
             # ตรวจหาข้อมูล
             get_setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
             setting_data = next((item for item in get_setting_data['SETTING'] if item['tabletID'] == str(TABLET_ID)), None)
-            print("Setting_DATA:", setting_data)
 
             # มีข้อมูลการตั้งค่าน้ำหนักยา
-            if setting_data:
+            if setting_data["productName"] and setting_data["productName"] != "xxxxx":
                 # ค่า min,max ที่กำหนด
                 Max_Tab = setting_data["number_tablets"]
                 Min = float(setting_data["min"])
@@ -777,81 +791,66 @@ def main():
             # สรุปผล
             weightSummary(Min_W, Max_W, AVG_W, weight["TYPE"])
             
-            # แจ้งเตือนไลน์
-            if lineAlert:
-                if AVG_W >= Min and AVG_W <= Max:
-                    averageOutOfRange = False
-                    with canvas(LED_SCR) as draw:
-                        dotmatrix(draw, (4, 0), led_passed, fill="red")
-                    textEnd(1, "<<Very Good>>")
-                elif AVG_W >= Min_DVT and AVG_W <= Max_DVT:
-                    averageOutOfRange = True
-                    with canvas(LED_SCR) as draw:
-                        dotmatrix(draw, (4, 0), led_notpass, fill="red")
-                    
-                    BUZZER.beep(0.5, 0.5, 5)
-                    textEnd(1, "<<Failed!>>")
-                else:
-                    averageOutOfRange = True
-                    with canvas(LED_SCR) as draw:
-                        dotmatrix(draw, (4, 0), led_notpass, fill="red")
-
-                    BUZZER.beep(0.5, 0.5, 5)
-                    textEnd(1, "<<Failed!>>")
-
-                timestamp_alert = str(datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))
-                weightOutOfRange = [] # เก็บรายการเม็ดที่ไม่อยู่ในช่วง
-                for w in weight["WEIGHT"]:
-                    if w[-1] < Min or w[-1] > Max:
-                        w[-1] = str('%.3f' % w[-1])
-                        weightOutOfRange.append(w)
-
-                # รายการเม็ดที่ไม่ได้อยู่ในช่วงที่กำหนด
-                if weightOutOfRange:
-                    weightOutOfRange = '\n'.join([str(item) for item in weightOutOfRange])  
-                    weightOutOfRange = f"❎เม็ดที่ไม่ได้อยู่ในช่วงที่กำหนด\n{weightOutOfRange}"
-
-                # ค่าเฉลี่ยไม่ได้อยู่ในช่วงที่กำหนด
-                if averageOutOfRange:
-                    averageOutOfRange = f"🔰ค่าเฉลี่ย {'%.3f' % AVG_W}g."
-                   
+            # มีข้อมูลการตั้งค่าน้ำหนักยา
+            if setting_data:
                 productName = setting_data["productName"]
                 lot = setting_data["Lot"]
-                if weightOutOfRange or averageOutOfRange:
-                    if not weightOutOfRange:
-                        weightOutOfRange = ""
-                    if not averageOutOfRange:
-                        averageOutOfRange = ""
 
+                if productName and productName != "xxxxx":
+                    timestamp_alert = weight["TIMESTAMP"]
+                    meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
+                        "✅ช่วงที่กำหนด \n" +\
+                        f"({'%.2f' % Min}g. - {'%.2f' % Max}g.) \n" +\
+                        "🔰ข้อมูลน้ำหนัก \n"
+                    
                     meseage_alert = f"\n {timestamp_alert} \n" +\
                         "🔰ระบบเครื่องชั่ง IPC \n" +\
                         f"🔰เครื่องตอก: {TABLET_ID} \n" +\
                         f"🔰ชื่อยา: {productName} \n" +\
                         "🔰Lot. " + str(lot) + "\n" +\
                         "✅ช่วงที่กำหนด \n" +\
-                        f"({'%.3f' % Min_DVT}g. - {'%.3f' % Max_DVT}g.) \n" +\
-                        f"{weightOutOfRange} \n" +\
-                        f"{averageOutOfRange}"
-                    
-                    # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                    lineNotify(meseage_alert)
+                        f"({'%.3f' % Min}g. - {'%.3f' % Min}g.) \n"
 
-                    # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                    response = service.spreadsheets().values().append(
-                        spreadsheetId=SHEET_ID,
-                        range=WEIGHTTABLE_REMARKS_RANGE,
-                        body={
-                            "majorDimension": "ROWS",
-                            "values": [[
-                                timestamp_alert, 
-                                "✅ช่วงที่กำหนด \n" +\
-                                f"({'%.3f' % Min_DVT}g. - {'%.3f' % Max_DVT}g.) \n" +\
-                                f"{weightOutOfRange} \n {averageOutOfRange}"
-                            ]]
-                        },
-                        valueInputOption="USER_ENTERED"
-                    ).execute()
-                
+                    # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
+                    weightOutOfRange = False
+                    for index, w in enumerate(weight["WEIGHT"]):
+                        if float(w[-1]) < Min or float(w[-1]) > Max:
+                            weightOutOfRange = True
+                            meseage_weight += f"❌{index+1}) {'%.3f' % w[-1]}g. \n"
+                        else:
+                            meseage_weight +=  f"✅{index+1}) {'%.3f' % w[-1]}g. \n"
+                    
+                    # ค่าเฉลี่ย
+                    meseage_weight += f"🔰ค่าเฉลี่ยที่ได้ {'%.3f' % AVG_W}g."
+
+                    # น้ำหนักที่อยู่ในช่วง
+                    if not weightOutOfRange:
+                        with canvas(LED_SCR) as draw:
+                            dotmatrix(draw, (4, 0), led_passed, fill="red")
+                        textEnd(1, "<<Very Good>>")
+                    else:
+                        with canvas(LED_SCR) as draw:
+                            dotmatrix(draw, (4, 0), led_notpass, fill="red")
+
+                        BUZZER.beep(0.5, 0.5, 5)
+                        textEnd(1, "<<Failed!>>")
+
+                        # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+                        response = service.spreadsheets().values().append(
+                            spreadsheetId=SHEET_ID,
+                            range=WEIGHTTABLE_REMARKS_RANGE,
+                            body={
+                                "majorDimension": "ROWS",
+                                "values": [[timestamp_alert, meseage_weight]]
+                            },
+                            valueInputOption="USER_ENTERED"
+                        ).execute()
+                    
+                        meseage_alert += meseage_weight
+
+                        # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+                        lineNotify(meseage_alert)
+
     except Exception as e:
         print(f"<<main error>> \n {e} \n")
 
