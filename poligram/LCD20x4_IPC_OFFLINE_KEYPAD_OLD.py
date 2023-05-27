@@ -10,6 +10,7 @@
 
 import json
 import random
+import threading
 
 # from __future__ import print_function
 import pickle
@@ -523,6 +524,17 @@ def update_setting_data(WEIGHTTABLE_LIST):
         except Exception as e:
             print(f"<<update user data error>> \n {e} \n")
             textEnd(3, "<<Failed!>>")
+
+# แสดงเวลา
+stop_print_time = False
+def print_time():
+    while not stop_print_time:
+        current_time = datetime.now().strftime("%H:%M:%S")
+        with canvas(LED_SCR) as draw:
+            text(draw, (2, 0), f"{current_time}", fill="red", font=proportional(TINY_FONT))
+        sleep(1)
+    
+    LED_SCR.clear()
 
 # ลงชื่อเข้าใช้งาน
 def login():

@@ -10,6 +10,7 @@
 
 import json
 import random
+import threading
 
 # from __future__ import print_function
 import pickle
@@ -99,12 +100,12 @@ led_offline_th = [0x74, 0x54, 0x44, 0x7c,
         ]
 
 # ตั้งค่า
-LINE_TOKEN = 'XGeivDcekfbgCYH9eNi2rCbDU9jSpktLm6FZsAcTLs0'
+LINE_TOKEN = 'p9YWBiZrsUAk7Ef9d0hLTMMF2CxIaTnRopHaGcosM4q'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 CREDENTIALS_DIR = '/home/pi/Desktop/poligram/database/credentials.json'
 TOKEN_DIR = '/home/pi/Desktop/poligram/token.pickle'
 
-DATABASE_SHEETID = "1MLEcT9m76IOQVHOmwQJCfAhPi6KbjiYI7d5SBp2nbWs"
+DATABASE_SHEETID = "1rUBfrqt40NhJGKIg5TwIIjFZHvS8UZ2NRAjpKKqpk2M"
 DATABASE_USER_RANGE = "User_Password!A3:F"
 DATABASE_JSON_DIR = '/home/pi/Desktop/poligram/database/username.json'
 SETTING_JSON_DIR = '/home/pi/Desktop/poligram/database/setting_ipc.json'
@@ -118,13 +119,13 @@ WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
 TABLET_LIST = [
     {
         "TABLET_ID": "T11" ,
-        "SHEET_ID": "1xQ9fZtQycxQFzKZ0YPS6Jh8n0ma55JSw8cDj1Jhk8yE",
-        "SCRIPT_ID": "1gXG8FA3xad1jy0Z8NB8980tFUxXP1_KY1FAU1eokKsgye26BOx-bc3bl"
+        "SHEET_ID": "1Jf4zcZoIafRXQpAdLOdnroN9JDfr-r5JMDnnR0duUpg",
+        "SCRIPT_ID": "1ea3JIcR5ejz3eG4bkvYUnQKsUpgmhhXfnIERgqbJodJfanYfko_Aac2i"
     },
     {
         "TABLET_ID": "T15" ,
-        "SHEET_ID": "1_plXAUFWopvnAbeIe7QKTgr8HwhKMQsyGHy0iwbuQIQ",
-        "SCRIPT_ID": "12Ze7g9jIBSxdwH_6z17ehfDwPTCxKJgV436PlOd_6KqaKb_z_Gx2kmkC"
+        "SHEET_ID": "13ODi0ju8wjIP7RddoixXtvZ7mNjvPXKCcop-FDn2oYM",
+        "SCRIPT_ID": "1A8VAJmKvyjKvO86xRa2puWPN1bjsXKW-qhAvdeG889KjOfEjeRsN-gDi"
     }
 ]
 
@@ -217,7 +218,7 @@ def readKeypad(Message):
             Timer -= 1
             # timeout
             if not Timer:
-                textEnd(0, "Restart...")
+                textEnd(3, "Restart...")
                 quit()
             elif Timer < 15:
                 BUZZER.beep(0.5, 0.5, 1) 
@@ -467,8 +468,8 @@ def update_setting_data(WEIGHTTABLE_LIST):
                     "number_tablets": None,
                     "weight_control,": None,
                     "percent": None,
-                    "min": None,
-                    "max": None,
+                    "min_avg": None,
+                    "max_avg": None,
                     "min_control": None,
                     "max_control": None,
                     "min_dvt": None,
@@ -490,6 +491,17 @@ def update_setting_data(WEIGHTTABLE_LIST):
             print(f"<<update user data error>> \n {e} \n")
             textEnd(3, "<<Failed!>>")
 
+# แสดงเวลา
+stop_print_time = False
+def print_time():
+    while not stop_print_time:
+        current_time = datetime.now().strftime("%H:%M:%S")
+        with canvas(LED_SCR) as draw:
+            text(draw, (2, 0), f"{current_time}", fill="red", font=proportional(TINY_FONT))
+        sleep(1)
+    
+    LED_SCR.clear()
+
 # ลงชื่อเข้าใช้งาน
 def login():
     try:
@@ -502,7 +514,9 @@ def login():
         while True:
             printScreen(1, "<< LOGIN >>")
             printScreen(3, "...RFID SCAN...")
-
+            
+            print_thread = threading.Thread(target=print_time)
+            print_thread.start()
             id = input("RFID: ")
             printScreen(1,f"ID: {id}")
 
@@ -510,13 +524,17 @@ def login():
                         item['rfid']) == id, jsonData["DATA"]))
             if result:
                 BUZZER.beep(0.1, 0.1, 1)
+                global stop_print_time
+                stop_print_time = True
+                print_thread.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
+                
                 for key in jsonData["LOGIN_IPC"]:
                     jsonData["LOGIN_IPC"][key] = result[0][key]
 
                 write_json(DATABASE_JSON_DIR, jsonData)
                 printScreen(3, result[0]["nameEN"])
-                sleep(1)
                 RFID.off() # ปิดการทำงาน RFID Reader
+                sleep(1.5)
                 return result[0]
             
             else:
@@ -568,10 +586,10 @@ def sendData_sheets(SCRIPT_ID, DATA_LIST):
         return False
     
 # อ่านค่าน้ำหนักจากเครื่องชั่ง
-def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
+def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_Control=0, Max_Control=0, Min_Dvt=0, Max_Dvt=0):
     
     dataWeight = []  # เก็บค่าน้ำหนัก
-    # sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
+    sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
 
     while len(dataWeight) < int(Max_Tab):
         now = datetime.now()
@@ -585,9 +603,9 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0,
         sleep(0.2)
 
         # อ่านค่าจาก port rs232
-        # w = sr.readline()
-        currentWeight = str(random.uniform(0.650,0.685))
-        # currentWeight = w.decode('ascii', errors='ignore')
+        w = sr.readline()
+        # currentWeight = str(random.uniform(0.650,0.685))
+        currentWeight = w.decode('ascii', errors='ignore')
         currentWeight = currentWeight.replace("?", "").strip().upper()
         currentWeight = currentWeight.replace("G", "").strip()
         currentWeight = currentWeight.replace("N", "").strip()
@@ -618,11 +636,11 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_AVG=0, Max_AVG=0, Min_Control=0,
             print("Reset!")
             quit()
 
-        if Min_AVG and Max_AVG and Min_Control and Max_Control:
+        if Min_Control and Max_Control and Min_Dvt and Max_Dvt:
             # ไฟแสดงค่า LED1_GREEN,LED2_ORANGE,LED3_RED
-            if weight >= Min_AVG and weight <= Max_AVG:
+            if weight >= Min_Control and weight <= Max_Control:
                 print("ผ่าน อยู่ในช่วงที่กำหนด")
-            elif weight >= Min_Control and weight <= Max_Control:
+            elif weight >= Min_Dvt and weight <= Max_Dvt:
                 with canvas(LED_SCR) as draw:
                     dotmatrix(draw, (4, 0), led_notpass, fill="red")
                 BUZZER.beep(0.1, 0.1, 5, background=False)
@@ -729,15 +747,15 @@ def main():
             if setting_data["productName"] and setting_data["productName"] != "xxxxx":
                 # ค่า min,max ที่กำหนด
                 Max_Tab = setting_data["number_tablets"]
-                Min = float(setting_data["min"])
-                Max = float(setting_data["max"])
+                Min_AVG = float(setting_data["min_avg"])
+                Max_AVG = float(setting_data["max_avg"])
                 Min_CONTROL = float(setting_data["min_control"])
                 Max_CONTROL = float(setting_data["max_control"])
                 Min_DVT = float(setting_data["min_dvt"])
                 Max_DVT = float(setting_data["max_dvt"])
 
                 LCD.clear() # เคลียร์หน้าจอ
-                weight = getWeight(nameTH, TABLET_ID, Max_Tab, Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+                weight = getWeight(nameTH, TABLET_ID, Max_Tab, Min_CONTROL, Max_CONTROL, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
             else:
                 # ป้อนจำนวนเม็ดที่ต้องชั่ง
                 printScreen(1, "SELECT TABLET ID")
@@ -800,21 +818,19 @@ def main():
                     timestamp_alert = weight["TIMESTAMP"]
                     meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
                         "✅ช่วงที่กำหนด \n" +\
-                        f"({'%.2f' % Min}g. - {'%.2f' % Max}g.) \n" +\
+                        f"({'%.3f' % Min_CONTROL}g. - {'%.3f' % Max_CONTROL}g.) \n" +\
                         "🔰ข้อมูลน้ำหนัก \n"
                     
                     meseage_alert = f"\n {timestamp_alert} \n" +\
                         "🔰ระบบเครื่องชั่ง IPC \n" +\
                         f"🔰เครื่องตอก: {TABLET_ID} \n" +\
                         f"🔰ชื่อยา: {productName} \n" +\
-                        "🔰Lot. " + str(lot) + "\n" +\
-                        "✅ช่วงที่กำหนด \n" +\
-                        f"({'%.3f' % Min}g. - {'%.3f' % Min}g.) \n"
+                        "🔰Lot. " + str(lot) + "\n"
 
                     # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
                     weightOutOfRange = False
                     for index, w in enumerate(weight["WEIGHT"]):
-                        if float(w[-1]) < Min or float(w[-1]) > Max:
+                        if float(w[-1]) < Min_CONTROL or float(w[-1]) > Max_CONTROL:
                             weightOutOfRange = True
                             meseage_weight += f"❌{index+1}) {'%.3f' % w[-1]}g. \n"
                         else:
@@ -826,9 +842,9 @@ def main():
                     # น้ำหนักที่อยู่ในช่วง
                     if not weightOutOfRange:
                         with canvas(LED_SCR) as draw:
-                            dotmatrix(draw, (4, 0), led_passed, fill="red")
+                            dotmatrix(draw, (9, 0), led_passed, fill="red")
                         textEnd(1, "<<Very Good>>")
-                    else:
+                    elif lineAlert and weightOutOfRange:
                         with canvas(LED_SCR) as draw:
                             dotmatrix(draw, (4, 0), led_notpass, fill="red")
 

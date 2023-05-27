@@ -12,6 +12,7 @@
 import json
 import random
 import re
+import threading
 
 # from __future__ import print_function
 import pickle
@@ -101,18 +102,18 @@ led_offline_th = [0x74, 0x54, 0x44, 0x7c,
         ]
 
 # ตั้งค่า
-LINE_TOKEN = 'XGeivDcekfbgCYH9eNi2rCbDU9jSpktLm6FZsAcTLs0'
+LINE_TOKEN = 'p9YWBiZrsUAk7Ef9d0hLTMMF2CxIaTnRopHaGcosM4q'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 CREDENTIALS_DIR = '/home/pi/Desktop/poligram/database/credentials.json'
 TOKEN_DIR = '/home/pi/Desktop/poligram/token.pickle'
 
-DATABASE_SHEETID = "1MLEcT9m76IOQVHOmwQJCfAhPi6KbjiYI7d5SBp2nbWs"
+DATABASE_SHEETID = "1rUBfrqt40NhJGKIg5TwIIjFZHvS8UZ2NRAjpKKqpk2M"
 DATABASE_USER_RANGE = "User_Password!A3:F"
 DATABASE_JSON_DIR = '/home/pi/Desktop/poligram/database/username.json'
 SETTING_JSON_DIR = '/home/pi/Desktop/poligram/database/setting_room.json'
 OFFLINE_JSON_DIR = '/home/pi/Desktop/poligram/database/offline_room.json'
 
-WEIGHTTABLE_SHEETID = "1Vfy1ovKCEVWl9X3cO-M4AV9IzOmuK467IeMWragfq-o"
+WEIGHTTABLE_SHEETID = "11vtMdROGXWDjpq9a3HFrpPSeH5UkKKrS4q4rrmxZdgY"
 WEIGHTTABLE_SETTING_RANGE = "Setting!A2:A14"
 WEIGHTTABLE_DATA_RANGE = "WEIGHT!A5:S"
 WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
@@ -317,7 +318,7 @@ def checkData_offline():
     if offline_data["DATA"]:
         dataArr = []
         for data in offline_data["DATA"]:
-            data.extend(["-"] * 11) # เพิ่ม - ไปอีก 11 ตัว
+            # data.extend(["-"] * 11) # เพิ่ม - ไปอีก 11 ตัว
             dataArr.append(data)
         try: 
             print("Sending data offline...")
@@ -396,6 +397,17 @@ def update_user_data():
         print(f"<<update user data error>> \n {e} \n")
         textEnd(3, "<<Failed!>>")
 
+# แสดงเวลา
+stop_print_time = False
+def print_time():
+    while not stop_print_time:
+        current_time = datetime.now().strftime("%H:%M:%S")
+        with canvas(LED_SCR) as draw:
+            text(draw, (2, 0), f"{current_time}", fill="red", font=proportional(TINY_FONT))
+        sleep(1)
+    
+    LED_SCR.clear()
+
 # ลงชื่อเข้าใช้งาน
 def login():
     try:
@@ -409,6 +421,8 @@ def login():
             printScreen(1, "<< LOGIN >>")
             printScreen(3, "...RFID SCAN...")
 
+            print_thread = threading.Thread(target=print_time)
+            print_thread.start()
             id = input("RFID: ")
             printScreen(1,f"ID: {id}")
 
@@ -416,13 +430,18 @@ def login():
                         item['rfid']) == id, jsonData["DATA"]))
             if result:
                 BUZZER.beep(0.1, 0.1, 1)
+                global stop_print_time
+                stop_print_time = True
+                print_thread.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
+                
                 for key in jsonData["LOGIN_ROOM"]:
                     jsonData["LOGIN_ROOM"][key] = result[0][key]
 
                 write_json(DATABASE_JSON_DIR, jsonData)
                 printScreen(3, result[0]["nameEN"] + " " + TABLET_ID)
-                sleep(1)
+                sleep(0.2)
                 RFID.off() # ปิดการทำงาน RFID Reader
+                sleep(0.8)
                 return result[0]
             
             else:
@@ -750,6 +769,7 @@ def main():
             else:
                 packetdata_arr.extend(["-"] * 10) # เพิ่ม - เข้า packetdata_arr 11 ตัว
 
+            print(packetdata_arr)
             checkData_offline() # ตรวจสอบและส่งข้อมูล offline
             textEnd(3, "Sending data....")
             status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
@@ -758,7 +778,7 @@ def main():
                 lineAlert = True # สถานะการส่งไลน์
             else:
                 packetdata_arr[1] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
-                update_json(OFFLINE_JSON_DIR, packetdata_arr[0:8]) # บันทึกข้อมูล 1-7 ไปยัง offline.json 
+                update_json(OFFLINE_JSON_DIR, packetdata_arr) # บันทึกข้อมูลไปยัง offline.json 
 
             # ค่า min,max,avg ของน้ำหนักที่ชั่ง
             weight_cache = [float(weight["weight1"]), float(weight["weight2"])]
@@ -801,7 +821,7 @@ def main():
                               
                     if not averageOutOfRange: # ไม่พบเม็ดที่น้ำหนักไม่อยู่ในช่วง
                         with canvas(LED_SCR) as draw:
-                            dotmatrix(draw, (4, 0), led_passed, fill="red")
+                            dotmatrix(draw, (9, 0), led_passed, fill="red")
                         textEnd(1, "<<Very Good>>")
 
                     elif lineAlert and averageOutOfRange: # พบเม็ดที่น้ำหนักไม่อยู่ในช่วง-แจ้งเตือนไลน์
@@ -830,38 +850,38 @@ def main():
                         # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
                         lineNotify(meseage_alert)
 
-                # ตรวจหาค่าความหนาที่ไม่อยู่ในช่วง
-                if thickness:
-                    timestamp_alert = weight["time"]                   
-                    weight_msg = [weight["weight1"], weight["weight2"]]
-                    
-                    meseage_thickness = "❎ความหนาไม่ได้อยู่ในช่วงที่กำหนด \n" +\
-                        "✅ช่วงที่กำหนด \n" +\
-                        f"({'%.2f' % min_Tickness}mm. - {'%.2f' % max_Tickness}mm.) \n" +\
-                        "🔰ข้อมูลความหนา \n"
-                    
-                    meseage_alert = f"\n {timestamp_alert} \n" +\
-                        "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
-                        f"🔰เครื่องตอก: {TABLET_ID} \n" +\
-                        f"🔰ชื่อยา: {productName} \n" +\
-                        "🔰Lot. " + str(lot) + "\n"
-                    
-                    thicknessOutOfRange = False
-                    for index, tn in enumerate(thickness):
-                        if float(tn) <  min_Tickness or float(tn) > max_Tickness:
-                            meseage_thickness +=  f"❌{index+1}) {'%.2f' % float(tn)}mm. \n"
-                            thicknessOutOfRange = True
-                        else:
-                            meseage_thickness +=  f"✅{index+1}) {'%.2f' % float(tn)}mm. \n"
-                    
-                    meseage_alert += meseage_thickness
-
-                    if thicknessOutOfRange:
-                        # ส่งบันทึกค่าความหนาที่ไม่อยู่ในช่วง
-                        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_thickness]])
+                    # ตรวจหาค่าความหนาที่ไม่อยู่ในช่วง
+                    if thickness:
+                        timestamp_alert = weight["time"]                   
+                        weight_msg = [weight["weight1"], weight["weight2"]]
                         
-                        # ส่งไลน์แจ้งเตือนค่าความหนาที่ไม่อยู่ในช่วง
-                        lineNotify(meseage_alert)            
+                        meseage_thickness = "❎ความหนาไม่ได้อยู่ในช่วงที่กำหนด \n" +\
+                            "✅ช่วงที่กำหนด \n" +\
+                            f"({'%.2f' % min_Tickness}mm. - {'%.2f' % max_Tickness}mm.) \n" +\
+                            "🔰ข้อมูลความหนา \n"
+                        
+                        meseage_alert = f"\n {timestamp_alert} \n" +\
+                            "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
+                            f"🔰เครื่องตอก: {TABLET_ID} \n" +\
+                            f"🔰ชื่อยา: {productName} \n" +\
+                            "🔰Lot. " + str(lot) + "\n"
+                        
+                        thicknessOutOfRange = False
+                        for index, tn in enumerate(thickness):
+                            if float(tn) <  min_Tickness or float(tn) > max_Tickness:
+                                meseage_thickness +=  f"❌{index+1}) {'%.2f' % float(tn)}mm. \n"
+                                thicknessOutOfRange = True
+                            else:
+                                meseage_thickness +=  f"✅{index+1}) {'%.2f' % float(tn)}mm. \n"
+                        
+                        meseage_alert += meseage_thickness
+
+                        if thicknessOutOfRange:
+                            # ส่งบันทึกค่าความหนาที่ไม่อยู่ในช่วง
+                            sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_thickness]])
+                            
+                            # ส่งไลน์แจ้งเตือนค่าความหนาที่ไม่อยู่ในช่วง
+                            lineNotify(meseage_alert)            
                 
     except Exception as e:
         print(f"<<main error>> \n {e} \n")
