@@ -352,6 +352,8 @@ def checkData_offline():
             for _data in offline_data:
                 print("Sending data offline...")
                 textEnd(3, "Sending data...")
+                get_setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
+                setting_data = next((item for item in get_setting_data['SETTING'] if item['tabletID'] == str(_data["TABLET_ID"])), None)
                 WEIGHTTABLE_SHEETID = checkSheetID(_data["TABLET_ID"])  # หาข้อมูลจากเลขเครื่องตอก
                 SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SCRIPT ID
                 SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
@@ -360,15 +362,11 @@ def checkData_offline():
                 if GET_CURRENT_RANGE:
                     CURRENT_RANGE = GET_CURRENT_RANGE[0][0]
                     # ข้อมูล
-                    DATA_LIST = {
-                        "CURRENT_RANGE": CURRENT_RANGE,
-                        "TIMESTAMP": _data["TIMESTAMP"],
-                        "SIGNATURE": _data["SIGNATURE"],
-                        "WEIGHT":  _data["WEIGHT"],
-                        "TYPE": _data["TYPE"]
-                    }
+                    _data["CURRENT_RANGE"] = CURRENT_RANGE[0],
 
-                    sendData_sheets(SCRIPT_ID, DATA_LIST) # ส่งข้อมูล
+                    status = sendData_sheets(SCRIPT_ID, _data) # ส่งข้อมูล
+                    if status and setting_data:
+                        remarksRecord(setting_data, _data)
 
                     tabletName_cache.append(_data["TABLET_ID"]) # เก็บหมายเลขเครื่องตอกที่ถูกส่งข้อมูล offline
                     deleted_cache.append(_data) # เก็บ _data ไว้ในลิสต์ที่จะลบ
@@ -515,8 +513,8 @@ def login():
             printScreen(1, "<< LOGIN >>")
             printScreen(3, "...RFID SCAN...")
             
-            print_thread = threading.Thread(target=print_time)
-            print_thread.start()
+            print_time_thead = threading.Thread(target=print_time)
+            print_time_thead.start()
             id = input("RFID: ")
             printScreen(1,f"ID: {id}")
 
@@ -526,7 +524,7 @@ def login():
                 BUZZER.beep(0.1, 0.1, 1)
                 global stop_print_time
                 stop_print_time = True
-                print_thread.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
+                print_time_thead.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
                 
                 for key in jsonData["LOGIN_IPC"]:
                     jsonData["LOGIN_IPC"][key] = result[0][key]
@@ -569,11 +567,11 @@ def getData_sheets(SHEETID, RANGE):
         return False
 
 # function Send Data to googlesheets
-def sendData_sheets(SCRIPT_ID, DATA_LIST):
+def sendData_sheets(SCRIPT_ID, packetdata_obj):
     try:
         request = {
             'function': "reciveData",
-            'parameters': [DATA_LIST],
+            'parameters': [packetdata_obj],
             'devMode': True
         }
         response = service_script.scripts().run(body=request, scriptId=SCRIPT_ID).execute()
@@ -651,9 +649,10 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_Control=0, Max_Control=0, Min_Dv
                 BUZZER.beep(0.1, 0.1, 5, background=False)
                 print("ไม่ผ่าน")
 
-    weight_obj = {
+    TIMESTAMP = now.strftime("%d/%m/%Y, %H:%M:%S")  # วันที่เวลา
+    packetdata_obj = {
         "TABLET_ID": TABLET_ID,
-        "TIMESTAMP": date_time,
+        "TIMESTAMP": TIMESTAMP,
         "SIGNATURE": USERNAME,
         "TYPE": "ONLINE",
         "WEIGHT": dataWeight
@@ -661,7 +660,7 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_Control=0, Max_Control=0, Min_Dv
 
     sleep(2)
     LED_SCR.clear()
-    return weight_obj
+    return packetdata_obj
 
 # สรุปผล
 def weightSummary(Min_W=0, Max_W=0, AVG_W=0, status=None):
@@ -680,6 +679,66 @@ def weightSummary(Min_W=0, Max_W=0, AVG_W=0, status=None):
     textEnd(3, "AVG:"+str('%.3f' % AVG_W))
     sleep(5)
 
+# ลงบันทึก remarks
+def remarksRecord(setting_data, packetdata_obj):
+    # มีข้อมูลการตั้งค่าน้ำหนักยา
+    productName = setting_data["productName"]
+    lot = setting_data["Lot"]
+    # ค่า min,max ที่กำหนด
+    Min_Control = float(setting_data["min_control"])
+    Max_Control = float(setting_data["max_control"])
+
+    TABLET_ID = packetdata_obj["TABLET_ID"]
+    timestamp_alert = packetdata_obj["TIMESTAMP"]
+    total_weight = packetdata_obj["WEIGHT"]
+
+    meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
+        "✅ช่วงที่กำหนด \n" +\
+        f"({'%.3f' % Min_Control}g. - {'%.3f' % Max_Control}g.) \n" +\
+        "🔰ข้อมูลน้ำหนัก \n"
+    
+    meseage_alert = f"\n {timestamp_alert} \n" +\
+        "🔰ระบบเครื่องชั่ง IPC \n" +\
+        f"🔰เครื่องตอก: {TABLET_ID} \n" +\
+        f"🔰ชื่อยา: {productName} \n" +\
+        "🔰Lot. " + str(lot) + "\n"
+
+    # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
+    weight_cache = []
+    weightOutOfRange = False
+    for index, weight in enumerate(total_weight):
+        weight_cache.append(weight[-1])
+        if float(weight[-1]) < Min_Control or float(weight[-1]) > Max_Control:
+            weightOutOfRange = True
+            meseage_weight += f"❌{index+1}) {'%.3f' % weight[-1]}g. \n"
+        else:
+            meseage_weight +=  f"✅{index+1}) {'%.3f' % weight[-1]}g. \n"
+    
+    # ค่าเฉลี่ย
+    average = sum(weight_cache) / len(weight_cache)
+    meseage_weight += f"🔰ค่าเฉลี่ยที่ได้ {'%.3f' % average}g."
+
+    # น้ำหนักไม่อยู่ในช่วง
+    if weightOutOfRange:
+        WEIGHTTABLE_SHEETID = checkSheetID(TABLET_ID) # หาข้อมูลจากเลขเครื่องตอก
+        SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
+
+        # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+        response = service.spreadsheets().values().append(
+            spreadsheetId=SHEET_ID,
+            range=WEIGHTTABLE_REMARKS_RANGE,
+            body={
+                "majorDimension": "ROWS",
+                "values": [[timestamp_alert, meseage_weight]]
+            },
+            valueInputOption="USER_ENTERED"
+        ).execute()
+    
+        meseage_alert += meseage_weight
+
+        # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+        lineNotify(meseage_alert)
+              
 # โปรแกรมหลัก
 def main():
     with canvas(LED_SCR) as draw:
@@ -755,7 +814,7 @@ def main():
                 Max_DVT = float(setting_data["max_dvt"])
 
                 LCD.clear() # เคลียร์หน้าจอ
-                weight = getWeight(nameTH, TABLET_ID, Max_Tab, Min_CONTROL, Max_CONTROL, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+                packetdata_obj = getWeight(nameTH, TABLET_ID, Max_Tab, Min_CONTROL, Max_CONTROL, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
             else:
                 # ป้อนจำนวนเม็ดที่ต้องชั่ง
                 printScreen(1, "SELECT TABLET ID")
@@ -763,11 +822,11 @@ def main():
                 sleep(1)
                 # Max_Tab = input("AMOUNT: ")
                 LCD.clear() # เคลียร์หน้าจอ
-                weight = getWeight(nameTH, TABLET_ID, Max_Tab)        
+                packetdata_obj = getWeight(nameTH, TABLET_ID, Max_Tab)        
 
             # ค่า min,max,avg ของน้ำหนักที่ชั่ง
             weight_cache = []
-            for weight_record in weight["WEIGHT"]:
+            for weight_record in packetdata_obj["WEIGHT"]:
                 weight_cache.append(float(weight_record[1]))
 
             Min_W = min(weight_cache)
@@ -778,94 +837,49 @@ def main():
             SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SCRIPT ID
             SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
             GET_CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE) # ตำแหน่งปัจจุบัน
-            print(GET_CURRENT_RANGE)
-            
-            lineAlert = False # สถานะการส่งไลน์
 
             if GET_CURRENT_RANGE:
                 CURRENT_RANGE = GET_CURRENT_RANGE[0][0]
                 # ข้อมูล
-                DATA_LIST = {
-                    "TYPE": weight["TYPE"],
-                    "CURRENT_RANGE": CURRENT_RANGE,
-                    "TIMESTAMP": weight["TIMESTAMP"],
-                    "SIGNATURE": weight["SIGNATURE"],
-                    "WEIGHT":  weight["WEIGHT"]
-                }
+                packetdata_obj["CURRENT_RANGE"] = CURRENT_RANGE
 
                 LCD.clear() # ล้างหน้าจอ
                 checkData_offline() # ตรวจสอบและส่งข้อมูล offline
                 textEnd(3, "Sending data....")
-                status = sendData_sheets(SCRIPT_ID, DATA_LIST) # ส่งข้อมูลไปยัง google sheet
-                if status:
-                    lineAlert = True # สถานะการส่งไลน์
-                else:
-                    weight["TYPE"] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
-                    update_json(OFFLINE_JSON_DIR, weight) # offline.json 
+                status = sendData_sheets(SCRIPT_ID, packetdata_obj) # ส่งข้อมูลไปยัง google sheet
+
+                if not status:
+                    packetdata_obj["TYPE"] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
+                    update_json(OFFLINE_JSON_DIR, packetdata_obj) # offline.json 
             else:
-                weight["TYPE"] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
-                update_json(OFFLINE_JSON_DIR, weight) # offline.json 
+                packetdata_obj["TYPE"] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
+                update_json(OFFLINE_JSON_DIR, packetdata_obj) # offline.json 
             
             # สรุปผล
-            weightSummary(Min_W, Max_W, AVG_W, weight["TYPE"])
+            weightSummary(Min_W, Max_W, AVG_W, packetdata_obj["TYPE"])
             
             # มีข้อมูลการตั้งค่าน้ำหนักยา
-            if setting_data:
-                productName = setting_data["productName"]
-                lot = setting_data["Lot"]
+            # if setting_data:
+            #     if setting_data["productName"] != "xxxxx":
+            #         # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
+            #         weightOutOfRange = False
+            #         for weight in packetdata_obj["WEIGHT"]:
+            #             if float(weight[-1]) < Min_CONTROL or float(weight[-1]) > Max_CONTROL:
+            #                 weightOutOfRange = True
+            #                 with canvas(LED_SCR) as draw:
+            #                     dotmatrix(draw, (4, 0), led_notpass, fill="red")
 
-                if productName and productName != "xxxxx":
-                    timestamp_alert = weight["TIMESTAMP"]
-                    meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
-                        "✅ช่วงที่กำหนด \n" +\
-                        f"({'%.3f' % Min_CONTROL}g. - {'%.3f' % Max_CONTROL}g.) \n" +\
-                        "🔰ข้อมูลน้ำหนัก \n"
-                    
-                    meseage_alert = f"\n {timestamp_alert} \n" +\
-                        "🔰ระบบเครื่องชั่ง IPC \n" +\
-                        f"🔰เครื่องตอก: {TABLET_ID} \n" +\
-                        f"🔰ชื่อยา: {productName} \n" +\
-                        "🔰Lot. " + str(lot) + "\n"
+            #                 BUZZER.beep(0.5, 0.5, 5)
+            #                 textEnd(1, "<<Failed!>>")
+            #                 break
 
-                    # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
-                    weightOutOfRange = False
-                    for index, w in enumerate(weight["WEIGHT"]):
-                        if float(w[-1]) < Min_CONTROL or float(w[-1]) > Max_CONTROL:
-                            weightOutOfRange = True
-                            meseage_weight += f"❌{index+1}) {'%.3f' % w[-1]}g. \n"
-                        else:
-                            meseage_weight +=  f"✅{index+1}) {'%.3f' % w[-1]}g. \n"
-                    
-                    # ค่าเฉลี่ย
-                    meseage_weight += f"🔰ค่าเฉลี่ยที่ได้ {'%.3f' % AVG_W}g."
-
-                    # น้ำหนักที่อยู่ในช่วง
-                    if not weightOutOfRange:
-                        with canvas(LED_SCR) as draw:
-                            dotmatrix(draw, (9, 0), led_passed, fill="red")
-                        textEnd(1, "<<Very Good>>")
-                    elif lineAlert and weightOutOfRange:
-                        with canvas(LED_SCR) as draw:
-                            dotmatrix(draw, (4, 0), led_notpass, fill="red")
-
-                        BUZZER.beep(0.5, 0.5, 5)
-                        textEnd(1, "<<Failed!>>")
-
-                        # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                        response = service.spreadsheets().values().append(
-                            spreadsheetId=SHEET_ID,
-                            range=WEIGHTTABLE_REMARKS_RANGE,
-                            body={
-                                "majorDimension": "ROWS",
-                                "values": [[timestamp_alert, meseage_weight]]
-                            },
-                            valueInputOption="USER_ENTERED"
-                        ).execute()
-                    
-                        meseage_alert += meseage_weight
-
-                        # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                        lineNotify(meseage_alert)
+            #         # น้ำหนักที่อยู่ในช่วง
+            #         if not weightOutOfRange:
+            #             with canvas(LED_SCR) as draw:
+            #                 dotmatrix(draw, (9, 0), led_passed, fill="red")
+            #             textEnd(1, "<<Very Good>>")
+            #         else:
+            #             remarksRecord(setting_data, packetdata_obj)
 
     except Exception as e:
         print(f"<<main error>> \n {e} \n")

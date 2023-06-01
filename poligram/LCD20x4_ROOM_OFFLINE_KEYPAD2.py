@@ -314,12 +314,14 @@ def firtconnect():
 
 # ตรวจสอบข้อมูล offline
 def checkData_offline():
+    setting_data = read_json(SETTING_JSON_DIR) # อ่านข้อมูลการตั้งค่าน้ำหนัก
     offline_data = read_json(OFFLINE_JSON_DIR)
     if offline_data["DATA"]:
-        dataArr = []
+        dataArr = [] # เก็บรวบรวมข้อมูลน้ำหนัก
+
         for data in offline_data["DATA"]:
-            # data.extend(["-"] * 11) # เพิ่ม - ไปอีก 11 ตัว
-            dataArr.append(data)
+            dataArr.append(data) # ส่งข้อมูลน้ำหนักไปเก็บที่ dataArr
+
         try: 
             print("Sending data offline...")
             textEnd(3, "Sending data..")
@@ -336,7 +338,13 @@ def checkData_offline():
                     '✅ เชื่อมต่ออีกครั้ง \n  ' +\
                     datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                 
-                # ส่งไลน์แจ้งเตือน
+                # ตรวจสอบเกณฑ์น้ำหนัก
+                for data in offline_data["DATA"]:
+                    if setting_data:
+                        if setting_data["productName"] != "xxxxx":
+                            remarksRecord(setting_data, data)
+                
+                # ส่งไลน์แจ้งเตือนการส่งค่าน้ำหนักออฟไลน์
                 lineNotify(msg_Notify)
 
                 # ล้างข้อมูล JSON
@@ -421,8 +429,8 @@ def login():
             printScreen(1, "<< LOGIN >>")
             printScreen(3, "...RFID SCAN...")
 
-            print_thread = threading.Thread(target=print_time)
-            print_thread.start()
+            print_time = threading.Thread(target=print_time)
+            print_time.start()
             id = input("RFID: ")
             printScreen(1,f"ID: {id}")
 
@@ -432,7 +440,7 @@ def login():
                 BUZZER.beep(0.1, 0.1, 1)
                 global stop_print_time
                 stop_print_time = True
-                print_thread.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
+                print_time.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
                 
                 for key in jsonData["LOGIN_ROOM"]:
                     jsonData["LOGIN_ROOM"][key] = result[0][key]
@@ -537,7 +545,7 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
         # รีเซ็ตโปรแกรม
         if weight < 0.005:
             LCD.clear()
-            printScreen(0, "WEIGHT VARIATION")
+            printScreen(0, "WEIGHT TABLET 10s'")
             textEnd(1, "Restart.....")
             print("Reset!")
             quit()
@@ -685,12 +693,102 @@ def weightSummary(Min_W, Max_W, AVG_W, status):
                 dotmatrix(draw, (2, 0), led_online_th, fill="red")
 
     LCD.clear()
-    printScreen(0, "WEIGHT VARIATION")
+    printScreen(0, "WEIGHT TABLET 10s'")
     printScreen(1, f"<< {status} >>")
     textEnd(2, "MN:"+ str('%.3f' % Min_W) + "  " + "MX:" + str('%.3f' % Max_W))
     textEnd(3, "AVG:"+str('%.3f' % AVG_W))
     sleep(5)
 
+# ลงบันทึก remarks
+def remarksRecord(setting_data, packetdata_arr):
+    # มีข้อมูลการตั้งค่าน้ำหนักยา
+    productName = setting_data["productName"]
+    lot = setting_data["Lot"]
+
+    # ค่า min,max ที่กำหนด
+    Min_Control = float(setting_data["min"])
+    Max_Control = float(setting_data["max"])
+    Min_DVT = float(setting_data["min_control"])
+    Max_DVT = float(setting_data["max_control"])
+    min_Tickness = float(setting_data["min_thickness"])
+    max_Tickness = float(setting_data["max_thickness"])
+
+    timestamp_alert = packetdata_arr[0]
+    weight1 = float(packetdata_arr[1])
+    weight2 = float(packetdata_arr[2])
+    total_weight = [weight1, weight2]
+    min_weight = min(total_weight)
+    max_weight = max(total_weight)
+    avg_weight = round(sum(total_weight)/len(total_weight), 3)
+    weight_cache = [min_weight, max_weight, avg_weight]
+
+    # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
+    weightOutOfRange = False
+    for weight in weight_cache:
+        if weight < Min_Control and weight > Max_Control:     
+            weightOutOfRange = True
+            break
+
+    # พบเม็ดยาที่ไม่อยู่ในช่วงที่กำหนด
+    if weightOutOfRange:
+        weight_msg = [weight1, weight2]
+    
+        meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
+            "✅ช่วงที่กำหนด \n" +\
+            f"({'%.3f' % Min_Control}g. - {'%.3f' % Max_Control}g.) \n" +\
+            "❎น้ำหนักที่ชั่ง \n" +\
+            f"❌{weight_msg} \n" +\
+            f"🔰ค่าเฉลี่ยที่ได้ {'%.3f' % avg_weight}g."
+            
+        
+        meseage_alert = f"\n {timestamp_alert} \n" +\
+            "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
+            f"🔰เครื่องตอก: {TABLET_ID} \n" +\
+            f"🔰ชื่อยา: {productName} \n" +\
+            "🔰Lot. " + str(lot) + "\n"
+        
+        meseage_alert += meseage_weight
+    
+        # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_weight]])
+            
+        # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+        lineNotify(meseage_alert)
+
+    # meseage แจ้งเตือนความหนาไม่ได้อยู่ในช่วงที่กำหนด
+    meseage_thickness = "❎ความหนาไม่ได้อยู่ในช่วงที่กำหนด \n" +\
+        "✅ช่วงที่กำหนด \n" +\
+        f"({'%.2f' % min_Tickness}mm. - {'%.2f' % max_Tickness}mm.) \n" +\
+        "🔰ข้อมูลความหนา \n"
+    
+    meseage_alert = f"\n {timestamp_alert} \n" +\
+        "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
+        f"🔰เครื่องตอก: {TABLET_ID} \n" +\
+        f"🔰ชื่อยา: {productName} \n" +\
+        "🔰Lot. " + str(lot) + "\n"
+    
+    # ตรวจหาค่าความหนาที่ไม่อยู่ในช่วง
+    thickness = packetdata_arr[9:19]  # ข้อมูลความหนา
+    thicknessOutOfRange = False
+
+    for index, tn in enumerate(thickness):
+        if(thickness == "-"):
+            break
+        elif float(tn) <  min_Tickness or float(tn) > max_Tickness:
+            meseage_thickness +=  f"❌{index+1}) {'%.2f' % float(tn)}mm. \n"
+            thicknessOutOfRange = True
+        else:
+            meseage_thickness +=  f"✅{index+1}) {'%.2f' % float(tn)}mm. \n"
+    
+    meseage_alert += meseage_thickness
+
+    if thicknessOutOfRange:
+        # ส่งบันทึกค่าความหนาที่ไม่อยู่ในช่วง
+        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_thickness]])
+        
+        # ส่งไลน์แจ้งเตือนค่าความหนาที่ไม่อยู่ในช่วง
+        lineNotify(meseage_alert)            
+                
 # โปรแกรมหลัก
 def main():
     with canvas(LED_SCR) as draw:
@@ -698,9 +796,9 @@ def main():
 
     logout() # ล้างข้อมูลผู้ใช้งาน
     LCD.clear()
-    print("WEIGHT VARIATION")
+    print("WEIGHT TABLET 10s'")
     print("Loading....")
-    textEnd(0, "WEIGHT VARIATION")
+    textEnd(0, "WEIGHT TABLET 10s'")
     textEnd(1, "Loading....")
 
     # ตรวจสอบการเชื่อมต่อกับเซิฟเวอร์ของ google
@@ -738,14 +836,14 @@ def main():
             # มีข้อมูลการตั้งค่าน้ำหนักยา
             if setting_data["productName"] and setting_data["productName"] != "xxxxx":
                 # ค่า min,max ที่กำหนด
-                Min = float(setting_data["min"])
-                Max = float(setting_data["max"])
+                Min_Control = float(setting_data["min"])
+                Max_Control = float(setting_data["max"])
                 Min_DVT = float(setting_data["min_control"])
                 Max_DVT = float(setting_data["max_control"])
                 min_Tickness = float(setting_data["min_thickness"])
                 max_Tickness = float(setting_data["max_thickness"])
             
-                weight = getWeight(Min, Max, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
+                weight = getWeight(Min_Control, Max_Control, Min_DVT, Max_DVT) # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
                 thickness = addThickness(min_Tickness, max_Tickness) # เพิ่มข้อมูลความหนาของเม็ดยา
             else:
                 weight = getWeight() # อ่านข้อมูลน้ำหนักจากเครื่องชั่ง
@@ -774,9 +872,7 @@ def main():
             textEnd(3, "Sending data....")
             status = sendData_sheets(WEIGHTTABLE_DATA_RANGE, [packetdata_arr]) # ส่งข้อมูลไปยัง google sheet
             
-            if status:
-                lineAlert = True # สถานะการส่งไลน์
-            else:
+            if not status:
                 packetdata_arr[1] = "OFFLINE" # เปลี่ยนสถานะเป็น OFFLINE
                 update_json(OFFLINE_JSON_DIR, packetdata_arr) # บันทึกข้อมูลไปยัง offline.json 
 
@@ -792,26 +888,13 @@ def main():
             # มีข้อมูลการตั้งค่าน้ำหนักยา
             if setting_data:
                 weight_temp = [Min_W, Max_W, AVG_W]
-                productName = setting_data["productName"]
-                lot = setting_data["Lot"]
 
-                if productName and productName != "xxxxx":
+                if setting_data["productName"] != "xxxxx":
                     # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
-                    averageOutOfRange = False
+                    weightOutOfRange = False
                     for w in weight_temp:
-                        if w >= Min and w <= Max:
-                            pass
-                        elif w >= Min_DVT and w <= Max_DVT:
-                            averageOutOfRange = True
-                            with canvas(LED_SCR) as draw:
-                                dotmatrix(draw, (4, 0), led_notpass, fill="red")
-
-                            BUZZER.beep(0.5, 0.5, 5)
-                            textEnd(1, "<<Failed!>>")
-                            break
-
-                        else:
-                            averageOutOfRange = True
+                        if w < Min_Control and w > Max_Control:
+                            weightOutOfRange = True
                             with canvas(LED_SCR) as draw:
                                 dotmatrix(draw, (4, 0), led_notpass, fill="red")
 
@@ -819,69 +902,13 @@ def main():
                             textEnd(1, "<<Failed!>>")
                             break
                               
-                    if not averageOutOfRange: # ไม่พบเม็ดที่น้ำหนักไม่อยู่ในช่วง
+                    if not weightOutOfRange: # ไม่พบเม็ดที่น้ำหนักไม่อยู่ในช่วง
                         with canvas(LED_SCR) as draw:
                             dotmatrix(draw, (9, 0), led_passed, fill="red")
                         textEnd(1, "<<Very Good>>")
 
-                    elif lineAlert and averageOutOfRange: # พบเม็ดที่น้ำหนักไม่อยู่ในช่วง-แจ้งเตือนไลน์
-                        timestamp_alert = weight["time"]                   
-                        weight_msg = [weight["weight1"], weight["weight2"]]
-                        
-                        meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
-                            "✅ช่วงที่กำหนด \n" +\
-                            f"({'%.3f' % Min}g. - {'%.3f' % Max}g.) \n" +\
-                            "❎น้ำหนักที่ชั่ง \n" +\
-                            f"❌{weight_msg} \n" +\
-                            f"🔰ค่าเฉลี่ยที่ได้ {'%.3f' % AVG_W}g."
-                            
-                        
-                        meseage_alert = f"\n {timestamp_alert} \n" +\
-                            "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
-                            f"🔰เครื่องตอก: {TABLET_ID} \n" +\
-                            f"🔰ชื่อยา: {productName} \n" +\
-                            "🔰Lot. " + str(lot) + "\n"
-                        
-                        meseage_alert += meseage_weight
-                        
-                        # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_weight]])
-                        
-                        # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-                        lineNotify(meseage_alert)
-
-                    # ตรวจหาค่าความหนาที่ไม่อยู่ในช่วง
-                    if thickness:
-                        timestamp_alert = weight["time"]                   
-                        weight_msg = [weight["weight1"], weight["weight2"]]
-                        
-                        meseage_thickness = "❎ความหนาไม่ได้อยู่ในช่วงที่กำหนด \n" +\
-                            "✅ช่วงที่กำหนด \n" +\
-                            f"({'%.2f' % min_Tickness}mm. - {'%.2f' % max_Tickness}mm.) \n" +\
-                            "🔰ข้อมูลความหนา \n"
-                        
-                        meseage_alert = f"\n {timestamp_alert} \n" +\
-                            "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
-                            f"🔰เครื่องตอก: {TABLET_ID} \n" +\
-                            f"🔰ชื่อยา: {productName} \n" +\
-                            "🔰Lot. " + str(lot) + "\n"
-                        
-                        thicknessOutOfRange = False
-                        for index, tn in enumerate(thickness):
-                            if float(tn) <  min_Tickness or float(tn) > max_Tickness:
-                                meseage_thickness +=  f"❌{index+1}) {'%.2f' % float(tn)}mm. \n"
-                                thicknessOutOfRange = True
-                            else:
-                                meseage_thickness +=  f"✅{index+1}) {'%.2f' % float(tn)}mm. \n"
-                        
-                        meseage_alert += meseage_thickness
-
-                        if thicknessOutOfRange:
-                            # ส่งบันทึกค่าความหนาที่ไม่อยู่ในช่วง
-                            sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_thickness]])
-                            
-                            # ส่งไลน์แจ้งเตือนค่าความหนาที่ไม่อยู่ในช่วง
-                            lineNotify(meseage_alert)            
+                    elif status and weightOutOfRange: # พบเม็ดที่น้ำหนักไม่อยู่ในช่วง-แจ้งเตือนไลน์
+                        remarksRecord(setting_data, packetdata_arr)           
                 
     except Exception as e:
         print(f"<<main error>> \n {e} \n")

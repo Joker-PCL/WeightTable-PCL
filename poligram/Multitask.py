@@ -87,7 +87,7 @@ def main():
 
 import subprocess
 import socket
-def get_wifi_signal_level():
+def get_wifi_signal_windows():
     while True:
         # command = "iwconfig wlan0"
         command = "netsh wlan show interfaces"
@@ -105,7 +105,7 @@ def get_wifi_signal_level():
                 print("internet is connected")
             except OSError:
                 print("internet in not connect")
-                
+
             key, ssid_line = ssid_line.split(':')
             key, signal_line = signal_line.split(':')
             signal = signal_line.strip()
@@ -114,6 +114,32 @@ def get_wifi_signal_level():
         
         sleep(1)
 
-get_wifi_signal_level()
+def get_wifi_signal_linux():
+    while True:
+        command = "iwconfig wlan0"
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, _ = process.communicate()
+
+        # หาบรรทัดที่มีข้อมูลเกี่ยวกับระดับสัญญานไวไฟ
+        output_lines = output.decode().split("\n")
+        ssid_line = next((line for line in output_lines if "SSID" in line), None)
+        signal_line = next((line for line in output_lines if "Signal level" in line), None)
+        
+        if signal_line:
+            try:
+                socket.create_connection(("www.google.com", 80), timeout=1)
+                print("internet is connected")
+            except OSError:
+                print("internet in not connect")
+                
+            key, ssid_line = ssid_line.split('=')
+            key, signal_line = signal_line.split('=')
+            signal = signal_line.strip()
+            ssid = ssid_line.strip()
+            print(ssid, signal)
+        
+        sleep(1)
+
+main()
 
 
