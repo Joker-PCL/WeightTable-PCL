@@ -312,7 +312,8 @@ def update_json(dir, jsonData):
 def firtconnect():
     global service
     global service_script
-
+    service = None
+    service_script = None
     try:
         creds = None
         if os.path.exists(TOKEN_DIR):
@@ -362,8 +363,9 @@ def checkData_offline():
                 if GET_CURRENT_RANGE:
                     CURRENT_RANGE = GET_CURRENT_RANGE[0][0]
                     # ข้อมูล
-                    _data["CURRENT_RANGE"] = CURRENT_RANGE[0],
+                    _data["CURRENT_RANGE"] = CURRENT_RANGE
 
+                    print(_data)
                     status = sendData_sheets(SCRIPT_ID, _data) # ส่งข้อมูล
                     if status and setting_data:
                         remarksRecord(setting_data, _data)
@@ -513,8 +515,8 @@ def login():
             printScreen(1, "<< LOGIN >>")
             printScreen(3, "...RFID SCAN...")
             
-            print_time_thead = threading.Thread(target=print_time)
-            print_time_thead.start()
+            print_time_thread = threading.Thread(target=print_time)
+            print_time_thread.start()
             id = input("RFID: ")
             printScreen(1,f"ID: {id}")
 
@@ -524,7 +526,7 @@ def login():
                 BUZZER.beep(0.1, 0.1, 1)
                 global stop_print_time
                 stop_print_time = True
-                print_time_thead.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
+                print_time_thread.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
                 
                 for key in jsonData["LOGIN_IPC"]:
                     jsonData["LOGIN_IPC"][key] = result[0][key]
@@ -555,34 +557,54 @@ def logout():
 
 # function Get Data from googlesheets
 def getData_sheets(SHEETID, RANGE):
-    try:
-        get_data = service.spreadsheets().values().get(
-            spreadsheetId=SHEETID, range=RANGE).execute()
-        data_list = get_data["values"]
-        
-        return data_list
+    if not service:
+        firtconnect()
 
-    except Exception as e:
-        print(f"<<get data sheet error>> \n {e} \n")
-        return False
+    laps = 0
+    while laps < 3:
+        laps += 1
+        printScreen(3, f"Get current range {laps}")
+
+        try:
+            get_data = service.spreadsheets().values().get(
+                spreadsheetId=SHEETID, range=RANGE).execute()
+            data_list = get_data["values"]
+            
+            return data_list
+
+        except Exception as e:
+            print(f"<<get data sheet error>> \n {e} \n")
+            pass
+            
+    return False
 
 # function Send Data to googlesheets
 def sendData_sheets(SCRIPT_ID, packetdata_obj):
-    try:
-        request = {
-            'function': "reciveData",
-            'parameters': [packetdata_obj],
-            'devMode': True
-        }
-        response = service_script.scripts().run(body=request, scriptId=SCRIPT_ID).execute()
+    if not service_script:
+        firtconnect()
+
+    laps = 0
+    while laps < 3:
+        laps += 1
+        printScreen(3, f"Sending data {laps}")
         
-        print(response)
-        return response
-    
-    except errors.HttpError as error:
-        print(f"<<send data sheet error>> \n {error.content} \n") 
-        return False
-    
+        try:
+            request = {
+                'function': "reciveData",
+                'parameters': [packetdata_obj],
+                'devMode': True
+            }
+            response = service_script.scripts().run(body=request, scriptId=SCRIPT_ID).execute()
+            
+            print(response)
+            return response
+        
+        except errors.HttpError as error:
+            print(f"<<send data sheet error>> \n {error.content} \n") 
+            pass
+        
+    return False
+       
 # อ่านค่าน้ำหนักจากเครื่องชั่ง
 def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_Control=0, Max_Control=0, Min_Dvt=0, Max_Dvt=0):
     
@@ -837,6 +859,7 @@ def main():
             SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SCRIPT ID
             SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
             GET_CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE) # ตำแหน่งปัจจุบัน
+            print(f"GET_CURRENT_RANGE: {GET_CURRENT_RANGE}")
 
             if GET_CURRENT_RANGE:
                 CURRENT_RANGE = GET_CURRENT_RANGE[0][0]
@@ -859,27 +882,27 @@ def main():
             weightSummary(Min_W, Max_W, AVG_W, packetdata_obj["TYPE"])
             
             # มีข้อมูลการตั้งค่าน้ำหนักยา
-            # if setting_data:
-            #     if setting_data["productName"] != "xxxxx":
-            #         # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
-            #         weightOutOfRange = False
-            #         for weight in packetdata_obj["WEIGHT"]:
-            #             if float(weight[-1]) < Min_CONTROL or float(weight[-1]) > Max_CONTROL:
-            #                 weightOutOfRange = True
-            #                 with canvas(LED_SCR) as draw:
-            #                     dotmatrix(draw, (4, 0), led_notpass, fill="red")
+            if setting_data:
+                if setting_data["productName"] != "xxxxx":
+                    # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
+                    weightOutOfRange = False
+                    for weight in packetdata_obj["WEIGHT"]:
+                        if float(weight[-1]) < Min_CONTROL or float(weight[-1]) > Max_CONTROL:
+                            weightOutOfRange = True
+                            with canvas(LED_SCR) as draw:
+                                dotmatrix(draw, (4, 0), led_notpass, fill="red")
 
-            #                 BUZZER.beep(0.5, 0.5, 5)
-            #                 textEnd(1, "<<Failed!>>")
-            #                 break
+                            BUZZER.beep(0.5, 0.5, 5)
+                            textEnd(1, "<<Failed!>>")
+                            break
 
-            #         # น้ำหนักที่อยู่ในช่วง
-            #         if not weightOutOfRange:
-            #             with canvas(LED_SCR) as draw:
-            #                 dotmatrix(draw, (9, 0), led_passed, fill="red")
-            #             textEnd(1, "<<Very Good>>")
-            #         else:
-            #             remarksRecord(setting_data, packetdata_obj)
+                    # น้ำหนักที่อยู่ในช่วง
+                    if not weightOutOfRange:
+                        with canvas(LED_SCR) as draw:
+                            dotmatrix(draw, (9, 0), led_passed, fill="red")
+                        textEnd(1, "<<Very Good>>")
+                    else:
+                        remarksRecord(setting_data, packetdata_obj)
 
     except Exception as e:
         print(f"<<main error>> \n {e} \n")

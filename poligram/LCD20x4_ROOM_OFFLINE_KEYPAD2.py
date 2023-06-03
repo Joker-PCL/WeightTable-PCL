@@ -113,12 +113,12 @@ DATABASE_JSON_DIR = '/home/pi/Desktop/poligram/database/username.json'
 SETTING_JSON_DIR = '/home/pi/Desktop/poligram/database/setting_room.json'
 OFFLINE_JSON_DIR = '/home/pi/Desktop/poligram/database/offline_room.json'
 
-WEIGHTTABLE_SHEETID = "11vtMdROGXWDjpq9a3HFrpPSeH5UkKKrS4q4rrmxZdgY"
+WEIGHTTABLE_SHEETID = "1DvRJHTLmmqaQknYHkHN-QQJsHYuSXmoo1cdrY7nfFHU"
 WEIGHTTABLE_SETTING_RANGE = "Setting!A2:A14"
 WEIGHTTABLE_DATA_RANGE = "WEIGHT!A5:S"
 WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
 
-TABLET_ID = 'T15'
+TABLET_ID = 'T11'
 
 keypad_rows = [22, 27, 18, 17]
 keypad_cols = [20, 16, 26, 19]
@@ -429,8 +429,8 @@ def login():
             printScreen(1, "<< LOGIN >>")
             printScreen(3, "...RFID SCAN...")
 
-            print_time = threading.Thread(target=print_time)
-            print_time.start()
+            print_time_thread = threading.Thread(target=print_time)
+            print_time_thread.start()
             id = input("RFID: ")
             printScreen(1,f"ID: {id}")
 
@@ -440,16 +440,15 @@ def login():
                 BUZZER.beep(0.1, 0.1, 1)
                 global stop_print_time
                 stop_print_time = True
-                print_time.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
+                print_time_thread.join()  # รอให้เทรด print_time สิ้นสุดการทำงาน
                 
                 for key in jsonData["LOGIN_ROOM"]:
                     jsonData["LOGIN_ROOM"][key] = result[0][key]
 
                 write_json(DATABASE_JSON_DIR, jsonData)
                 printScreen(3, result[0]["nameEN"] + " " + TABLET_ID)
-                sleep(0.2)
                 RFID.off() # ปิดการทำงาน RFID Reader
-                sleep(0.8)
+                sleep(1)
                 return result[0]
             
             else:
@@ -472,24 +471,33 @@ def logout():
 
 # function Send Data to googlesheets
 def sendData_sheets(sheetRange, dataArr):
-    try:
-        response = service.spreadsheets().values().append(
-            spreadsheetId=WEIGHTTABLE_SHEETID,
-            range=sheetRange,
-            body={
-                "majorDimension": "ROWS",
-                "values": dataArr
-            },
-            valueInputOption="USER_ENTERED"
-        ).execute()
+    if not service:
+        firtconnect()
+        
+    laps = 0
+    while laps < 3:
+        laps += 1
+        printScreen(3, f"Sending data {laps}")
+        try:
+            response = service.spreadsheets().values().append(
+                spreadsheetId=WEIGHTTABLE_SHEETID,
+                range=sheetRange,
+                body={
+                    "majorDimension": "ROWS",
+                    "values": dataArr
+                },
+                valueInputOption="USER_ENTERED"
+            ).execute()
 
-        print(f"{response} \n")
+            print(f"{response} \n")
 
-        return True
-    
-    except Exception as e:
-        print(f"\n<<Send data sheets error>> \n {e} \n")
-        return False
+            return True
+        
+        except Exception as e:
+            print(f"\n<<Send data sheets error>> \n {e} \n")
+            pass
+
+    return False
 
 # อ่านค่าน้ำหนักจากเครื่องชั่ง
 def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
@@ -706,16 +714,16 @@ def remarksRecord(setting_data, packetdata_arr):
     lot = setting_data["Lot"]
 
     # ค่า min,max ที่กำหนด
-    Min_Control = float(setting_data["min"])
-    Max_Control = float(setting_data["max"])
-    Min_DVT = float(setting_data["min_control"])
-    Max_DVT = float(setting_data["max_control"])
+    Min_Control = float(setting_data["min_control"])
+    Max_Control = float(setting_data["max_control"])
+    Min_DVT = float(setting_data["min_dvt"])
+    Max_DVT = float(setting_data["max_dvt"])
     min_Tickness = float(setting_data["min_thickness"])
     max_Tickness = float(setting_data["max_thickness"])
 
     timestamp_alert = packetdata_arr[0]
-    weight1 = float(packetdata_arr[1])
-    weight2 = float(packetdata_arr[2])
+    weight1 = float(packetdata_arr[2])
+    weight2 = float(packetdata_arr[3])
     total_weight = [weight1, weight2]
     min_weight = min(total_weight)
     max_weight = max(total_weight)
@@ -725,7 +733,7 @@ def remarksRecord(setting_data, packetdata_arr):
     # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
     weightOutOfRange = False
     for weight in weight_cache:
-        if weight < Min_Control and weight > Max_Control:     
+        if weight < Min_Control or weight > Max_Control:     
             weightOutOfRange = True
             break
 
@@ -772,7 +780,7 @@ def remarksRecord(setting_data, packetdata_arr):
     thicknessOutOfRange = False
 
     for index, tn in enumerate(thickness):
-        if(thickness == "-"):
+        if(tn == "-"):
             break
         elif float(tn) <  min_Tickness or float(tn) > max_Tickness:
             meseage_thickness +=  f"❌{index+1}) {'%.2f' % float(tn)}mm. \n"
@@ -836,10 +844,10 @@ def main():
             # มีข้อมูลการตั้งค่าน้ำหนักยา
             if setting_data["productName"] and setting_data["productName"] != "xxxxx":
                 # ค่า min,max ที่กำหนด
-                Min_Control = float(setting_data["min"])
-                Max_Control = float(setting_data["max"])
-                Min_DVT = float(setting_data["min_control"])
-                Max_DVT = float(setting_data["max_control"])
+                Min_Control = float(setting_data["min_control"])
+                Max_Control = float(setting_data["min_control"])
+                Min_DVT = float(setting_data["min_dvt"])
+                Max_DVT = float(setting_data["max_dvt"])
                 min_Tickness = float(setting_data["min_thickness"])
                 max_Tickness = float(setting_data["max_thickness"])
             
@@ -892,8 +900,8 @@ def main():
                 if setting_data["productName"] != "xxxxx":
                     # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
                     weightOutOfRange = False
-                    for w in weight_temp:
-                        if w < Min_Control and w > Max_Control:
+                    for weight in weight_temp:
+                        if weight < Min_Control or weight > Max_Control:
                             weightOutOfRange = True
                             with canvas(LED_SCR) as draw:
                                 dotmatrix(draw, (4, 0), led_notpass, fill="red")
