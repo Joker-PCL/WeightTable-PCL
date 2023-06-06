@@ -500,7 +500,7 @@ def sendData_sheets(sheetRange, dataArr):
     return False
 
 # อ่านค่าน้ำหนักจากเครื่องชั่ง
-def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
+def getWeight(Min_Control=0, Max_Control=0, Min_DVT=0, Max_DVT=0):
     
     dataWeight = []  # เก็บค่าน้ำหนัก
     clearScreen(3)
@@ -558,11 +558,11 @@ def getWeight(Min_AVG=0, Max_AVG=0, Min_Control=0, Max_Control=0):
             print("Reset!")
             quit()
 
-        if Min_AVG and Max_AVG and Min_Control and Max_Control:
+        if Min_Control and Max_Control and Min_DVT and Max_DVT:
             # ไฟแสดงค่า LED1_GREEN,LED2_ORANGE,LED3_RED
-            if weight >= Min_AVG and weight <= Max_AVG:
+            if weight >= Min_Control and weight <= Max_Control:
                 print("ผ่าน อยู่ในช่วงที่กำหนด")
-            elif weight >= Min_Control and weight <= Max_Control:
+            elif weight >= Min_DVT and weight <= Max_DVT:
                 with canvas(LED_SCR) as draw:
                     dotmatrix(draw, (4, 0), led_notpass, fill="red")
                 BUZZER.beep(0.1, 0.1, 5, background=False)
@@ -845,7 +845,7 @@ def main():
             if setting_data["productName"] and setting_data["productName"] != "xxxxx":
                 # ค่า min,max ที่กำหนด
                 Min_Control = float(setting_data["min_control"])
-                Max_Control = float(setting_data["min_control"])
+                Max_Control = float(setting_data["max_control"])
                 Min_DVT = float(setting_data["min_dvt"])
                 Max_DVT = float(setting_data["max_dvt"])
                 min_Tickness = float(setting_data["min_thickness"])
