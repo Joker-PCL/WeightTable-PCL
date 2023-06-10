@@ -34,7 +34,46 @@ sudo pip3 install RPLCD
 sudo pip install smbus2
 sudo apt-get install pigpio python-pigpio python3-pigpio
 
-##### install DS3231 #####
+##### install DS3231 แบบที่1 #####
+1.เปิดใช้งาน I2C:
+เปิดไฟล์ /boot/config.txt ด้วยบรรทัดคำสั่งต่อไปนี้: 
+    sudo nano /boot/config.txt
+    *ตรวจสอบว่ามีบรรทัด dtparam=i2c_arm=on และ dtparam=i2c1=on         
+    ถูกเพิ่มหรือไม่ ถ้าไม่มีให้เพิ่มแล้วบันทึกไฟล์
+
+2.ติดตั้งและกำหนดค่าแพ็กเกจของ RTC ผ่านคำสั่งต่อไปนี้: 
+    sudo apt-get install python-smbus i2c-tools
+
+3.หลังจากติดตั้งแพ็กเกจเสร็จสิ้น ให้ใช้คำสั่ง: 
+    sudo i2cdetect -y 1 เพื่อตรวจสอบที่อยู่ของ RTC ในบรรทัดที่แสดงผล
+
+4.เปิดไฟล์ /etc/modules ด้วยคำสั่งต่อไปนี้: 
+    sudo nano /etc/modules
+    เพิ่มบรรทัด rtc-ds3231 และบันทึกไฟล์
+
+5.ตั้งค่า Raspberry Pi เพื่อใช้เวลาจาก DS3231:
+เปิดไฟล์ /lib/udev/hwclock-set ด้วยคำสั่งต่อไปนี้: 
+    sudo nano /lib/udev/hwclock-set
+
+    *ค้นหาบรรทัด if [ -e /run/systemd/system ] และทำการแก้ไขให้ดูเหมือนนี้:
+        if [ -e /run/systemd/system ] ; then
+            exit 0
+        fi
+
+6.เปิด Raspberry Pi Terminal ปิดการใช้งาน "fake-hwclock" โดยใช้คำสั่งต่อไปนี้:
+    sudo systemctl stop fake-hwclock
+    
+    6.1 ตั้งค่าเวลาใน DS3231 RTC โดยใช้คำสั่งต่อไปนี้: 
+        sudo hwclock -w
+    6.2 เปิดใช้งาน DS3231 RTC เพื่อให้ Raspberry Pi อ้างอิงเวลาจากนั้น โดยใช้คำสั่งต่อไปนี้: 
+        sudo hwclock -s
+    6.3 เปิดการใช้งาน "fake-hwclock" อีกครั้งเพื่อรักษาการจดจำเวลาของ Raspberry Pi ในกรณีที่ DS3231 RTC ไม่สามารถอ่านได้ในอนาคต: 
+        sudo systemctl start fake-hwclock
+    6.4 รีสตาร์ท Raspberry Pi เพื่อให้การตั้งค่ามีผลสมบูรณ์: 
+        sudo reboot
+***เมื่อ Raspberry Pi เริ่มต้นใหม่ จะใช้เวลาจาก DS3231 RTC เป็นเวลาหลักของระบบ และจะปรับเวลาเองโดยอัตโนมัติจาก RTC เมื่อ Raspberry Pi เชื่อมต่อกับอินเทอร์เน็ต หรือหากเกิดเหตุการณ์เปลี่ยนแปลงเวลา (เช่น เมื่อรีสตาร์ทหรือตั้งค่าเวลาใหม่ใน Raspberry Pi)
+
+##### install DS3231 แบบที่2 #####
 sudo apt-get update
 sudo apt-get install -y python-smbus i2c-tools
 
