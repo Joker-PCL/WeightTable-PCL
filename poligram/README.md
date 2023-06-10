@@ -2,7 +2,6 @@
 ##                              Dev.  Nattapon                                 ##
 ##                       Program Author and Designer                           ##
 ## ============================================================================##
-## ต้องใช้คำสั่ง sudo su pip install google-api-python-client 
 
 #รายการอัพเดท
 update 16/7/2022  ส่งเวลา และวันที่ อัตโนมัติ
@@ -35,11 +34,49 @@ sudo pip3 install RPLCD
 sudo pip install smbus2
 sudo apt-get install pigpio python-pigpio python3-pigpio
 
+##### install DS3231 #####
+sudo apt-get update
+sudo apt-get install -y python-smbus i2c-tools
+
+1.เปิดไฟล์ /etc/modules โดยใช้คำสั่ง sudo nano /etc/modules
+เพิ่มบรรทัดต่อไปนี้และบันทึกไฟล์:
+    i2c-bcm2708
+    i2c-dev
+
+2.เปิดไฟล์ /etc/rc.local โดยใช้คำสั่ง sudo nano /etc/rc.local
+ก่อนบรรทัด exit 0 เพิ่มบรรทัดต่อไปนี้และบันทึกไฟล์:
+    sudo i2cdetect -y 1
+    รีสตาร์ท Raspberry Pi
+
+3.ทดสอบการทำงานของ RTC:
+เปิด Terminal และใช้คำสั่งต่อไปนี้เพื่อตรวจสอบการติดต่อกับ RTC:
+    sudo i2cdetect -y 1
+
+4.อ่านค่าจาก DS3231:
+    sudo hwclock -r
+
+5.ให้โมดูล DS3231 RTC อัปเดตค่าเวลาของตัวเองจากอินเตอร์เน็ตผ่าน Raspberry Pi:
+    sudo nano /etc/systemd/timesyncd.conf
+    sudo systemctl restart systemd-timesyncd
+
+6.เพื่อให้ Raspberry Pi อัปเดตเวลาจาก DS3231 RTC เมื่อไม่มีการเชื่อมต่ออินเตอร์เน็ต ใช้โค้ด Python เพื่อเรียกใช้งาน API ของ NTP เพื่ออัปเดตเวลาใน Raspberry Pi เมื่อมีการเชื่อมต่ออินเตอร์เน็ตอยู่ และให้ Raspberry Pi ใช้เวลาจาก DS3231 RTC เมื่อไม่มีการเชื่อมต่ออินเตอร์เน็ต ดังนี้:
+
+**ติดตั้งไลบรารี Python ntplib โดยใช้คำสั่งต่อไปนี้ใน Terminal:
+    pip install ntplib
+    ตัวอย่างโค้ด DS3231.py
+
+
 ##### install Keypad 4x4 #####
 keypad_rows = [22, 27, 18, 17]
 keypad_cols = [20, 16, 26, 19]
 
 ##### PIN GPIO SETUP #####
+DS3231:
+    POWER = 5V
+    POWER = GND
+    SDA I2C = GPIO 02
+    SCL I2C = GPIO 03
+    
 LCD:
     POWER = 5V
     POWER = GND

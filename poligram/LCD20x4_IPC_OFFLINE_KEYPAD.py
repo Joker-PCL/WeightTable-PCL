@@ -123,9 +123,9 @@ TABLET_LIST = [
         "SCRIPT_ID": "1ea3JIcR5ejz3eG4bkvYUnQKsUpgmhhXfnIERgqbJodJfanYfko_Aac2i"
     },
     {
-        "TABLET_ID": "T15" ,
-        "SHEET_ID": "13ODi0ju8wjIP7RddoixXtvZ7mNjvPXKCcop-FDn2oYM",
-        "SCRIPT_ID": "1A8VAJmKvyjKvO86xRa2puWPN1bjsXKW-qhAvdeG889KjOfEjeRsN-gDi"
+        "TABLET_ID": "T17" ,
+        "SHEET_ID": "1YidBH7JCtjswegCp8BnxblEpm0iDbyGJtQIrYIR2Swo",
+        "SCRIPT_ID": "1yC8mB5VAr1S4jHDxazy8VW--kwkabzZkKogEYwnhBe9TP6uwfyg-vx5a"
     }
 ]
 
@@ -612,13 +612,8 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_Control=0, Max_Control=0, Min_Dv
     sr = serial.Serial(port="/dev/ttyUSB0", baudrate=9600)
 
     while len(dataWeight) < int(Max_Tab):
-        now = datetime.now()
-        date_time = now.strftime("%d/%m/%Y, %H:%M:%S")  # วันที่เวลา
-        Today = now.strftime("%d/%m/%Y")  # วันที่
-        Time = now.strftime("%H:%M:%S")  # เวลา
-
         printScreen(0, "<< Ready >>")
-        print(f"\n{str(date_time)}")
+        
         print("READY:", TABLET_ID)
         sleep(0.2)
 
@@ -639,6 +634,7 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_Control=0, Max_Control=0, Min_Dv
 
         Timestamp = datetime.now().strftime("%H:%M:%S")
         dataWeight.append([Timestamp, weight])
+        print(f"\n{str(Timestamp)}")
         print(str(len(dataWeight))+")"+str(weight))
         screen(dataWeight, '%.3f' % weight)
         BUZZER.beep(0.1, 0.1, 1)
@@ -671,7 +667,7 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_Control=0, Max_Control=0, Min_Dv
                 BUZZER.beep(0.1, 0.1, 5, background=False)
                 print("ไม่ผ่าน")
 
-    TIMESTAMP = now.strftime("%d/%m/%Y, %H:%M:%S")  # วันที่เวลา
+    TIMESTAMP = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")  # วันที่เวลา
     packetdata_obj = {
         "TABLET_ID": TABLET_ID,
         "TIMESTAMP": TIMESTAMP,
@@ -858,16 +854,15 @@ def main():
             WEIGHTTABLE_SHEETID = checkSheetID(TABLET_ID) # หาข้อมูลจากเลขเครื่องตอก
             SCRIPT_ID = WEIGHTTABLE_SHEETID["SCRIPT_ID"] # SCRIPT ID
             SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
-            GET_CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE) # ตำแหน่งปัจจุบัน
-            print(f"GET_CURRENT_RANGE: {GET_CURRENT_RANGE}")
 
+            LCD.clear() # ล้างหน้าจอ
+            checkData_offline() # ตรวจสอบและส่งข้อมูล offline
+
+            GET_CURRENT_RANGE = getData_sheets(SHEET_ID, WEIGHTTABLE_SETTING_RANGE) # ตำแหน่งปัจจุบัน
             if GET_CURRENT_RANGE:
                 CURRENT_RANGE = GET_CURRENT_RANGE[0][0]
                 # ข้อมูล
                 packetdata_obj["CURRENT_RANGE"] = CURRENT_RANGE
-
-                LCD.clear() # ล้างหน้าจอ
-                checkData_offline() # ตรวจสอบและส่งข้อมูล offline
                 textEnd(3, "Sending data....")
                 status = sendData_sheets(SCRIPT_ID, packetdata_obj) # ส่งข้อมูลไปยัง google sheet
 
