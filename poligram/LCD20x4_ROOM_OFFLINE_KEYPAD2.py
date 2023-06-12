@@ -6,8 +6,7 @@
 # update 16/7/2022  ส่งเวลา และวันที่ อัตโนมัติ
 #                   ส่งเวลา Range ที่จะลงข้อมูลครั้งถัดไป,ส่งไลน์แจ้งเตือนเมื่อน้ำหนักไม่ได้อยู่ในช่วง
 # update 08/1/2023  เพิ่มการบันทึกข้อมูลแบบ offline กรณีไม่สามารถเชื่อมต่อ internet ได้
-#                   โดยไฟล์จะบันทึกไว้ใน json_dir = "/home/pi/Json_offline/data_offline.json"
-
+# update 12/06/2023  เพิ่มการบันทึกข้อมูล log file
 
 import json
 import random
@@ -31,6 +30,12 @@ from RPLCD import *
 from RPLCD.i2c import CharLCD
 from gpiozero import LED, Buzzer
 import RPi.GPIO as GPIO
+
+# เก็บ log file ** debug, info, warning, error, critical
+import logging
+logging.basicConfig(filename='poligram.log', level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)s: %(message)s',
+                    datefmt='%d-%m-%Y %H:%M:%S')
 
 RFID = LED(23) # RFID SWITCH
 BUZZER = Buzzer(24) # BUZZER
@@ -113,12 +118,12 @@ DATABASE_JSON_DIR = '/home/pi/Desktop/poligram/database/username.json'
 SETTING_JSON_DIR = '/home/pi/Desktop/poligram/database/setting_room.json'
 OFFLINE_JSON_DIR = '/home/pi/Desktop/poligram/database/offline_room.json'
 
-WEIGHTTABLE_SHEETID = "1rrtwbCGEfuKkTRXAZZsd0Mj-7y0iolnicN351c0L5xw"
+WEIGHTTABLE_SHEETID = "1DvRJHTLmmqaQknYHkHN-QQJsHYuSXmoo1cdrY7nfFHU"
 WEIGHTTABLE_SETTING_RANGE = "Setting!A2:A14"
 WEIGHTTABLE_DATA_RANGE = "WEIGHT!A5:S"
 WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
 
-TABLET_ID = 'T17'
+TABLET_ID = 'T11'
 
 keypad_rows = [22, 27, 18, 17]
 keypad_cols = [20, 16, 26, 19]
@@ -448,7 +453,8 @@ def login():
                 write_json(DATABASE_JSON_DIR, jsonData)
                 printScreen(3, result[0]["nameEN"] + " " + TABLET_ID)
                 RFID.off() # ปิดการทำงาน RFID Reader
-                sleep(1)
+                logging.info(f"login: {result}")
+                sleep(1.5)
                 return result[0]
             
             else:
@@ -458,6 +464,7 @@ def login():
                 sleep(1)
 
     except Exception as e:
+        logging.error(f"login error: {e}")
         print(f"<<login error>> \n {e} \n")
 
 # ลงชื่อออก
@@ -494,6 +501,7 @@ def sendData_sheets(sheetRange, dataArr):
             return True
         
         except Exception as e:
+            logging.error(f"sendData_sheets: {dataArr} \n {e}")
             print(f"\n<<Send data sheets error>> \n {e} \n")
             pass
 
@@ -584,6 +592,7 @@ def getWeight(Min_Control=0, Max_Control=0, Min_DVT=0, Max_DVT=0):
 
             # Timestamp dataWeight
             dataWeight.insert(0, Time)
+            logging.debug(f"getWeight: {dataWeight}")
             sleep(2)
             LED_SCR.clear()
             return weight_obj
@@ -663,6 +672,7 @@ def addThickness(minTn=0, maxTn=0):
             GPIO.output(gpio_out, GPIO.LOW)
             
         if len(Thickness) == 10:
+            logging.debug(f"addThickness: {Thickness}")
             return Thickness
         
         # จับเวลา
@@ -739,7 +749,7 @@ def remarksRecord(setting_data, packetdata_arr):
 
     # พบเม็ดยาที่ไม่อยู่ในช่วงที่กำหนด
     if weightOutOfRange:
-        weight_msg = [weight1, weight2]
+        weight_msg = ['%.3f' % weight1, '%.3f' % weight2]
     
         meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
             "✅ช่วงที่กำหนด \n" +\
@@ -919,6 +929,7 @@ def main():
                         remarksRecord(setting_data, packetdata_arr)           
                 
     except Exception as e:
+        logging.error(f"main error: {e}")
         print(f"<<main error>> \n {e} \n")
 
 if __name__ == '__main__':

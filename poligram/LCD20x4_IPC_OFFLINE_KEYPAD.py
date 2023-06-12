@@ -6,7 +6,7 @@
 # update 27/6/2022 แก้ระบบ Login ระบบตรวจสอบการส่งข้อมูล ส่งไลน์แจ้งเตือนเมื่อน้ำหนักไม่ได้อยู่ในช่วง
 #                  หรือโปรแกรม Error
 # update 08/1/2023  เพิ่มการบันทึกข้อมูลแบบ offline กรณีไม่สามารถเชื่อมต่อ internet ได้
-#                   โดยไฟล์จะบันทึกไว้ใน json_dir = "/home/pi/Json_offline/data_offline.json"
+# update 12/06/2023  เพิ่มการบันทึกข้อมูล log file
 
 import json
 import random
@@ -24,6 +24,12 @@ from googleapiclient import errors
 import serial
 from datetime import datetime
 from time import time, sleep
+
+# เก็บ log file ** debug, info, warning, error, critical
+import logging
+logging.basicConfig(filename='poligram.log', level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)s: %(message)s',
+                    datefmt='%d-%m-%Y %H:%M:%S')
 
 from RPLCD import *
 from RPLCD.i2c import CharLCD
@@ -534,6 +540,7 @@ def login():
                 write_json(DATABASE_JSON_DIR, jsonData)
                 printScreen(3, result[0]["nameEN"])
                 RFID.off() # ปิดการทำงาน RFID Reader
+                logging.info(f"login: {result}")
                 sleep(1.5)
                 return result[0]
             
@@ -544,6 +551,7 @@ def login():
                 sleep(1)
 
     except Exception as e:
+        logging.error(f"login error: {e}")
         print(f"<<login error>> \n {e} \n")
 
 # ลงชื่อออก
@@ -573,6 +581,7 @@ def getData_sheets(SHEETID, RANGE):
             return data_list
 
         except Exception as e:
+            logging.error(f"getData_sheets error: {e}")
             print(f"<<get data sheet error>> \n {e} \n")
             pass
             
@@ -600,6 +609,7 @@ def sendData_sheets(SCRIPT_ID, packetdata_obj):
             return response
         
         except errors.HttpError as error:
+            logging.error(f"sendData_sheets error: {packetdata_obj} \n {error.content}")
             print(f"<<send data sheet error>> \n {error.content} \n") 
             pass
         
@@ -675,7 +685,8 @@ def getWeight(USERNAME, TABLET_ID, Max_Tab, Min_Control=0, Max_Control=0, Min_Dv
         "TYPE": "ONLINE",
         "WEIGHT": dataWeight
     }
-
+    
+    logging.debug(f"getWeight: {packetdata_obj}")
     sleep(2)
     LED_SCR.clear()
     return packetdata_obj
@@ -900,6 +911,7 @@ def main():
                         remarksRecord(setting_data, packetdata_obj)
 
     except Exception as e:
+        logging.error(f"main error: {e}")
         print(f"<<main error>> \n {e} \n")
 
 if __name__ == '__main__':
