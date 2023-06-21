@@ -375,9 +375,10 @@ def checkData_offline():
                     status = sendData_sheets(SCRIPT_ID, _data) # ส่งข้อมูล
                     if status and setting_data:
                         remarksRecord(setting_data, _data)
-
-                    tabletName_cache.append(_data["TABLET_ID"]) # เก็บหมายเลขเครื่องตอกที่ถูกส่งข้อมูล offline
-                    deleted_cache.append(_data) # เก็บ _data ไว้ในลิสต์ที่จะลบ
+                    
+                    if status:
+                        tabletName_cache.append(_data["TABLET_ID"]) # เก็บหมายเลขเครื่องตอกที่ถูกส่งข้อมูล offline
+                        deleted_cache.append(_data) # เก็บ _data ไว้ในลิสต์ที่จะลบ
 
                 else:
                     return "failed"
