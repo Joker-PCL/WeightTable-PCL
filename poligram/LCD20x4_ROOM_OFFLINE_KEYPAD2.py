@@ -766,18 +766,25 @@ def remarksRecord(setting_data, packetdata_arr):
             "🔰Lot. " + str(lot) + "\n"
         
         meseage_alert += meseage_weight
-    
-        # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_weight]])
-            
+
+        # debug
+        logging.debug(f"addRemarks: {weight_msg}")
+
         # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
         lineNotify(meseage_alert)
+    
+        # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+        message_alert = message_alert.replace("❎", "")
+        message_alert = message_alert.replace("✅", "")
+        message_alert = message_alert.replace("❌", "")
+        message_alert = message_alert.replace("🔰", "")
+        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_weight]])
 
     # meseage แจ้งเตือนความหนาไม่ได้อยู่ในช่วงที่กำหนด
     meseage_thickness = "❎ความหนาไม่ได้อยู่ในช่วงที่กำหนด \n" +\
         "✅ช่วงที่กำหนด \n" +\
         f"({'%.2f' % min_Tickness}mm. - {'%.2f' % max_Tickness}mm.) \n" +\
-        "🔰ข้อมูลความหนา \n"
+        "🔰ข้อมูลความหนาที่ไม่อยู่ในช่วง \n"
     
     meseage_alert = f"\n {timestamp_alert} \n" +\
         "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
@@ -793,19 +800,28 @@ def remarksRecord(setting_data, packetdata_arr):
         if(tn == "-"):
             break
         elif float(tn) <  min_Tickness or float(tn) > max_Tickness:
-            meseage_thickness +=  f"❌{index+1}) {'%.2f' % float(tn)}mm. \n"
+            meseage_thickness +=  f"เม็ดที่ {index+1}) {'%.2f' % float(tn)}mm. \n"
             thicknessOutOfRange = True
         else:
-            meseage_thickness +=  f"✅{index+1}) {'%.2f' % float(tn)}mm. \n"
+            pass
+            # meseage_thickness +=  f"✅{index+1}) {'%.2f' % float(tn)}mm. \n"
     
     meseage_alert += meseage_thickness
 
     if thicknessOutOfRange:
-        # ส่งบันทึกค่าความหนาที่ไม่อยู่ในช่วง
-        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_thickness]])
-        
+        # debug
+        logging.debug(f"addRemarks: {thickness}")
+
         # ส่งไลน์แจ้งเตือนค่าความหนาที่ไม่อยู่ในช่วง
-        lineNotify(meseage_alert)            
+        lineNotify(meseage_alert)   
+
+        # ส่งบันทึกค่าความหนาที่ไม่อยู่ในช่วง
+        meseage_thickness = meseage_thickness.replace("❎", "")
+        meseage_thickness = meseage_thickness.replace("✅", "")
+        meseage_thickness = meseage_thickness.replace("❌", "")
+        meseage_thickness = meseage_thickness.replace("🔰", "")
+        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_thickness]])
+                 
                 
 # โปรแกรมหลัก
 def main():
@@ -828,7 +844,7 @@ def main():
     print("<<<< CHECK DATA OFFLINE >>>>")
     checkData_offline()
 
-    # อัพเดพข้อมูลรายชื่อ
+    # อัพเดพข้อมูลรายชื่อ, อัพเดทการตั้งค่าน้ำหนัก
     printScreen(1, "UPDATE DATA LIST")
     print("<<<< UPDATE DATA >>>>")
     update_user_data()

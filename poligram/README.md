@@ -12,6 +12,9 @@ update 08/05/2023  ใช้การแสกนบัตร rfid 125khz ใน
                   ดึงข้อมูลการรายชื่อ การตั้งค่ามาเก็บไว้ที่ตัวเครื่อง
 update 10/06/2023  เพิ่มโมดูล DS3231 (โมดูลนาฬิกา) ในการเก็บค่าเวลา
 
+เพิ่มไวไฟ
+sudo nano /etc/wpa_supplicant/wpa_supplicant.conf
+
 ##### จำเป็นต้องติดตั้ง Libraries ที่จำเป็นถึงจะสามารถใช้งานได้ #####
 sudo apt update
 sudo su pip install --upgrade google-api-python-client

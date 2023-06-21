@@ -724,7 +724,7 @@ def remarksRecord(setting_data, packetdata_obj):
     meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
         "✅ช่วงที่กำหนด \n" +\
         f"({'%.3f' % Min_Control}g. - {'%.3f' % Max_Control}g.) \n" +\
-        "🔰ข้อมูลน้ำหนัก \n"
+        "🔰ข้อมูลน้ำหนักที่ไม่อยู่ในช่วง \n"
     
     meseage_alert = f"\n {timestamp_alert} \n" +\
         "🔰ระบบเครื่องชั่ง IPC \n" +\
@@ -739,9 +739,10 @@ def remarksRecord(setting_data, packetdata_obj):
         weight_cache.append(weight[-1])
         if float(weight[-1]) < Min_Control or float(weight[-1]) > Max_Control:
             weightOutOfRange = True
-            meseage_weight += f"❌{index+1}) {'%.3f' % weight[-1]}g. \n"
+            meseage_weight += f"เม็ดที่ {index+1}) {'%.3f' % weight[-1]}g. \n"
         else:
-            meseage_weight +=  f"✅{index+1}) {'%.3f' % weight[-1]}g. \n"
+            pass
+            # meseage_weight +=  f"✅{index+1}) {'%.3f' % weight[-1]}g. \n"
     
     # ค่าเฉลี่ย
     average = sum(weight_cache) / len(weight_cache)
@@ -749,10 +750,18 @@ def remarksRecord(setting_data, packetdata_obj):
 
     # น้ำหนักไม่อยู่ในช่วง
     if weightOutOfRange:
+        # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+        meseage_alert += meseage_weight
+        lineNotify(meseage_alert)
+
         WEIGHTTABLE_SHEETID = checkSheetID(TABLET_ID) # หาข้อมูลจากเลขเครื่องตอก
         SHEET_ID = WEIGHTTABLE_SHEETID["SHEET_ID"] # SHEET ID
 
         # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
+        meseage_weight = meseage_weight.replace("❎", "")
+        meseage_weight = meseage_weight.replace("✅", "")
+        meseage_weight = meseage_weight.replace("❌", "")
+        meseage_weight = meseage_weight.replace("🔰", "")
         response = service.spreadsheets().values().append(
             spreadsheetId=SHEET_ID,
             range=WEIGHTTABLE_REMARKS_RANGE,
@@ -762,11 +771,6 @@ def remarksRecord(setting_data, packetdata_obj):
             },
             valueInputOption="USER_ENTERED"
         ).execute()
-    
-        meseage_alert += meseage_weight
-
-        # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-        lineNotify(meseage_alert)
               
 # โปรแกรมหลัก
 def main():

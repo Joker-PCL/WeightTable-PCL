@@ -1,0 +1,9 @@
+17-06-2023 08:21:51 INFO: file_cache is only supported with oauth2client<4.0.0
+17-06-2023 12:20:48 DEBUG: Making request: POST https://oauth2.googleapis.com/token
+17-06-2023 12:20:48 DEBUG: Starting new HTTPS connection (1): oauth2.googleapis.com:443
+17-06-2023 12:20:48 DEBUG: https://oauth2.googleapis.com:443 "POST /token HTTP/1.1" 200 None
+17-06-2023 12:20:48 INFO: file_cache is only supported with oauth2client<4.0.0
+17-06-2023 12:21:12 INFO: file_cache is only supported with oauth2client<4.0.0
+17-06-2023 12:21:12 DEBUG: URL being requested: GET https://www.googleapis.com/drive/v3/files?q=%2710JT2s9zd8pcmSj-kB2T5s-kFHlW58IE3%27+in+parents+and+mimeType%3D%27application%2Fvnd.google-apps.spreadsheet%27&fields=nextPageToken%2C+files%28id%2C+name%29&alt=json
+17-06-2023 12:21:13 DEBUG: URL being requested: GET https://www.googleapis.com/drive/v3/files/1EMJJ6WugWYfsxKHRStHrPM4T0xPCWlwqROMxahpcJEI/export?mimeType=application%2Fpdf&alt=media
+17-06-2023 13:50:14 INFO: file_cache is only supported with oauth2client<4.0.0
