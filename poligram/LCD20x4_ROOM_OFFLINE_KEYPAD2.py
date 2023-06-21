@@ -118,12 +118,12 @@ DATABASE_JSON_DIR = '/home/pi/Desktop/poligram/database/username.json'
 SETTING_JSON_DIR = '/home/pi/Desktop/poligram/database/setting_room.json'
 OFFLINE_JSON_DIR = '/home/pi/Desktop/poligram/database/offline_room.json'
 
-WEIGHTTABLE_SHEETID = "1DvRJHTLmmqaQknYHkHN-QQJsHYuSXmoo1cdrY7nfFHU"
+WEIGHTTABLE_SHEETID = "1rrtwbCGEfuKkTRXAZZsd0Mj-7y0iolnicN351c0L5xw"
 WEIGHTTABLE_SETTING_RANGE = "Setting!A2:A14"
 WEIGHTTABLE_DATA_RANGE = "WEIGHT!A5:S"
 WEIGHTTABLE_REMARKS_RANGE = "Remark!A3:F"
 
-TABLET_ID = 'T11'
+TABLET_ID = 'T17'
 
 keypad_rows = [22, 27, 18, 17]
 keypad_cols = [20, 16, 26, 19]
