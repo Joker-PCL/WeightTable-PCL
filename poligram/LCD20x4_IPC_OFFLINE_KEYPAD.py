@@ -400,7 +400,13 @@ def checkData_offline():
                     datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                     
                 # ส่งไลน์แจ้งเตือน
-                lineNotify(msg_Notify)
+                # ส่งไลน์แจ้งเตือนการส่งค่าน้ำหนักออฟไลน์
+                timestamp_obj = datetime.strptime(Timestamp_offline, "%d/%m/%Y, %H:%M:%S")
+                current_time = datetime.now() # เวลาปัจจุบัน
+                time_diff = current_time - timestamp_obj # ระยะเวลา
+                minutes_diff = int(time_diff.total_seconds() // 60) # ระยะเวลาเป็นนาที
+                if minutes_diff > 5:
+                    lineNotify(msg_Notify)
 
                 print("<<< send data success >>>", end='\n\n')
                 textEnd(3, "<<Success>>")

@@ -102,8 +102,27 @@ def firtconnect():
         print(response)
 
     except errors.HttpError as error:
-        print(f"<<send data sheet error>> \n {error.status_code} \n") 
+        print(f"<<send data sheet error>> \n {error.content} \n") 
 
+from datetime import datetime
+def compareTime():
+    while True:
+        TIMESTAMP = "21/06/2023, 22:45:14"
 
-firtconnect()
+        # แปลง TIMESTAMP เป็นวัตถุ datetime
+        timestamp_obj = datetime.strptime(TIMESTAMP, "%d/%m/%Y, %H:%M:%S")
 
+        # เวลาปัจจุบัน
+        current_time = datetime.now()
+
+        # คำนวณหาความต่างระหว่าง TIMESTAMP กับเวลาปัจจุบัน
+        time_diff = current_time - timestamp_obj
+
+        # แปลงความต่างเวลาเป็นนาที
+        minutes_diff = int(time_diff.total_seconds() // 60)
+
+        print(f"ผ่านไป {minutes_diff} นาที")
+
+        time.sleep(1)
+
+compareTime()

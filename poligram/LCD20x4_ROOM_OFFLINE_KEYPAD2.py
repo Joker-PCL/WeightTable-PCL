@@ -350,7 +350,12 @@ def checkData_offline():
                             remarksRecord(setting_data, data)
                 
                 # ส่งไลน์แจ้งเตือนการส่งค่าน้ำหนักออฟไลน์
-                lineNotify(msg_Notify)
+                timestamp_obj = datetime.strptime(Timestamp_offline, "%d/%m/%Y, %H:%M:%S")
+                current_time = datetime.now() # เวลาปัจจุบัน
+                time_diff = current_time - timestamp_obj # ระยะเวลา
+                minutes_diff = int(time_diff.total_seconds() // 60) # ระยะเวลาเป็นนาที
+                if minutes_diff > 5:
+                    lineNotify(msg_Notify)
 
                 # ล้างข้อมูล JSON
                 write_json(OFFLINE_JSON_DIR, {"DATA": []})
