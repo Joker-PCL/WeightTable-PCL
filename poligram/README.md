@@ -18,6 +18,7 @@ sudo nano /etc/wpa_supplicant/wpa_supplicant.conf
 ##### จำเป็นต้องติดตั้ง Libraries ที่จำเป็นถึงจะสามารถใช้งานได้ #####
 sudo apt update
 sudo su pip install --upgrade google-api-python-client
+pip install google-api-python-client
 pip install requests
 pip install keyboard
 sudo apt install python3-gpiozero
