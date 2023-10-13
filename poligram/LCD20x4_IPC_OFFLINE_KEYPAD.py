@@ -507,11 +507,17 @@ def update_setting_data(WEIGHTTABLE_LIST):
 # แสดงเวลา
 stop_print_time = False
 def print_time():
+    clearScrTime = 0
     while not stop_print_time:
         current_time = datetime.now().strftime("%H:%M:%S")
         with canvas(LED_SCR) as draw:
             text(draw, (2, 0), f"{current_time}", fill="red", font=proportional(TINY_FONT))
         sleep(1)
+        clearScrTime += 1
+        if clearScrTime >= 30:
+            clearScrTime = 0
+            LED_SCR.clear()
+            
     
     LED_SCR.clear()
 

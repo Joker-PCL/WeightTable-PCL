@@ -418,11 +418,17 @@ def update_user_data():
 # แสดงเวลา
 stop_print_time = False
 def print_time():
+    clearScrTime = 0
     while not stop_print_time:
         current_time = datetime.now().strftime("%H:%M:%S")
         with canvas(LED_SCR) as draw:
             text(draw, (2, 0), f"{current_time}", fill="red", font=proportional(TINY_FONT))
         sleep(1)
+        clearScrTime += 1
+        if clearScrTime >= 30:
+            clearScrTime = 0
+            LED_SCR.clear()
+            
     
     LED_SCR.clear()
 
@@ -660,6 +666,7 @@ def addThickness(minTn=0, maxTn=0):
                                             dotmatrix(draw, (4, 0), led_notpass, fill="red")
                                         BUZZER.beep(0.1, 0.1, 5, background=False)
                                 
+                                print("MinTn: " + str(minTn) + " MaxTn: " + str(maxTn) + " Tn: " + str(Tn))
                                 keypad_cache = '%.2f' % Tn
                                 Thickness.append(keypad_cache)
                                 screen(Thickness, f"{keypad_cache}mm")
@@ -754,6 +761,12 @@ def remarksRecord(setting_data, packetdata_arr):
 
     # พบเม็ดยาที่ไม่อยู่ในช่วงที่กำหนด
     if weightOutOfRange:
+        with canvas(LED_SCR) as draw:
+                dotmatrix(draw, (4, 0), led_notpass, fill="red")
+
+        BUZZER.beep(0.5, 0.5, 5)
+        textEnd(1, "<<Failed!>>")
+
         weight_msg = ['%.3f' % weight1, '%.3f' % weight2]
     
         meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
@@ -784,6 +797,12 @@ def remarksRecord(setting_data, packetdata_arr):
         message_alert = message_alert.replace("❌", "")
         message_alert = message_alert.replace("🔰", "")
         sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_weight]])
+    else:
+        with canvas(LED_SCR) as draw:
+            dotmatrix(draw, (9, 0), led_passed, fill="red")
+
+        textEnd(1, "<<Very Good>>")
+
 
     # meseage แจ้งเตือนความหนาไม่ได้อยู่ในช่วงที่กำหนด
     meseage_thickness = "❎ความหนาไม่ได้อยู่ในช่วงที่กำหนด \n" +\
@@ -800,6 +819,7 @@ def remarksRecord(setting_data, packetdata_arr):
     # ตรวจหาค่าความหนาที่ไม่อยู่ในช่วง
     thickness = packetdata_arr[9:19]  # ข้อมูลความหนา
     thicknessOutOfRange = False
+    print("thickness: " + str(thickness))
 
     for index, tn in enumerate(thickness):
         if(tn == "-"):
@@ -826,8 +846,7 @@ def remarksRecord(setting_data, packetdata_arr):
         meseage_thickness = meseage_thickness.replace("❌", "")
         meseage_thickness = meseage_thickness.replace("🔰", "")
         sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_thickness]])
-                 
-                
+                                
 # โปรแกรมหลัก
 def main():
     with canvas(LED_SCR) as draw:
@@ -925,29 +944,8 @@ def main():
             weightSummary(Min_W, Max_W, AVG_W, packetdata_arr[1])
 
             # มีข้อมูลการตั้งค่าน้ำหนักยา
-            if setting_data:
-                weight_temp = [Min_W, Max_W, AVG_W]
-
-                if setting_data["productName"] != "xxxxx":
-                    # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
-                    weightOutOfRange = False
-                    for weight in weight_temp:
-                        if weight < Min_Control or weight > Max_Control:
-                            weightOutOfRange = True
-                            with canvas(LED_SCR) as draw:
-                                dotmatrix(draw, (4, 0), led_notpass, fill="red")
-
-                            BUZZER.beep(0.5, 0.5, 5)
-                            textEnd(1, "<<Failed!>>")
-                            break
-                              
-                    if not weightOutOfRange: # ไม่พบเม็ดที่น้ำหนักไม่อยู่ในช่วง
-                        with canvas(LED_SCR) as draw:
-                            dotmatrix(draw, (9, 0), led_passed, fill="red")
-                        textEnd(1, "<<Very Good>>")
-
-                    elif status and weightOutOfRange: # พบเม็ดที่น้ำหนักไม่อยู่ในช่วง-แจ้งเตือนไลน์
-                        remarksRecord(setting_data, packetdata_arr)           
+            if status and setting_data and setting_data["productName"] != "xxxxx":
+                remarksRecord(setting_data, packetdata_arr)           
                 
     except Exception as e:
         logging.error(f"main error: {e}")
