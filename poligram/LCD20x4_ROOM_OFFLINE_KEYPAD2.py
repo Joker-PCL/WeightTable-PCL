@@ -8,8 +8,8 @@
 # update 08/1/2023  เพิ่มการบันทึกข้อมูลแบบ offline กรณีไม่สามารถเชื่อมต่อ internet ได้
 # update 12/06/2023  เพิ่มการบันทึกข้อมูล log file
 
+# import random
 import json
-import random
 import re
 import threading
 
@@ -752,51 +752,53 @@ def remarksRecord(setting_data, packetdata_arr):
     avg_weight = round(sum(total_weight)/len(total_weight), 3)
     weight_cache = [min_weight, max_weight, avg_weight]
 
+    weight_msg = ['%.3f' % weight1, '%.3f' % weight2]
+    message_alert = f"\n {timestamp_alert} \n" +\
+            "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
+            f"🔰เครื่องตอก: {TABLET_ID} \n" +\
+            f"🔰ชื่อยา: {productName} \n" +\
+            "🔰Lot. " + str(lot) + "\n"
+    
+    message_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
+        "✅ช่วงที่กำหนด \n" +\
+        f"({'%.3f' % Min_Control}g. - {'%.3f' % Max_Control}g.) \n"
+    
     # ตรวจหาน้ำหนักที่ไม่อยู่ในช่วง
     weightOutOfRange = False
     for weight in weight_cache:
         if weight < Min_Control or weight > Max_Control:     
             weightOutOfRange = True
+            message_weight += "❎น้ำหนักที่ชั่ง \n"
+            message_weight += f"❌{weight_msg} \n"
             break
+    
+    if avg_weight < Min_Control or avg_weight > Max_Control:
+        weightOutOfRange = True
+        message_weight += f"❌ค่าเฉลี่ยที่ได้ {'%.3f' % avg_weight}g."
+    else:
+        message_weight += f"🔰ค่าเฉลี่ยที่ได้ {'%.3f' % avg_weight}g."
 
     # พบเม็ดยาที่ไม่อยู่ในช่วงที่กำหนด
     if weightOutOfRange:
         with canvas(LED_SCR) as draw:
-                dotmatrix(draw, (4, 0), led_notpass, fill="red")
+            dotmatrix(draw, (4, 0), led_notpass, fill="red")
 
         BUZZER.beep(0.5, 0.5, 5)
-        textEnd(1, "<<Failed!>>")
-
-        weight_msg = ['%.3f' % weight1, '%.3f' % weight2]
-    
-        meseage_weight = "❎น้ำหนักไม่ได้อยู่ในช่วงที่กำหนด \n" +\
-            "✅ช่วงที่กำหนด \n" +\
-            f"({'%.3f' % Min_Control}g. - {'%.3f' % Max_Control}g.) \n" +\
-            "❎น้ำหนักที่ชั่ง \n" +\
-            f"❌{weight_msg} \n" +\
-            f"🔰ค่าเฉลี่ยที่ได้ {'%.3f' % avg_weight}g."
-            
-        
-        meseage_alert = f"\n {timestamp_alert} \n" +\
-            "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
-            f"🔰เครื่องตอก: {TABLET_ID} \n" +\
-            f"🔰ชื่อยา: {productName} \n" +\
-            "🔰Lot. " + str(lot) + "\n"
-        
-        meseage_alert += meseage_weight
+        textEnd(1, "<<Failed!>>")                    
+        message_alert += message_weight
 
         # debug
         logging.debug(f"addRemarks: {weight_msg}")
 
         # ส่งไลน์แจ้งเตือนค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-        lineNotify(meseage_alert)
+        lineNotify(message_alert)
     
         # ส่งบันทึกค่าน้ำหนักที่ไม่ผ่านเกณฑ์
-        message_alert = message_alert.replace("❎", "")
-        message_alert = message_alert.replace("✅", "")
-        message_alert = message_alert.replace("❌", "")
-        message_alert = message_alert.replace("🔰", "")
-        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_weight]])
+        message_weight = message_weight.replace("❎", "")
+        message_weight = message_weight.replace("✅", "")
+        message_weight = message_weight.replace("❌", "")
+        message_weight = message_weight.replace("🔰", "")
+        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, message_weight]])
     else:
         with canvas(LED_SCR) as draw:
             dotmatrix(draw, (9, 0), led_passed, fill="red")
@@ -804,13 +806,13 @@ def remarksRecord(setting_data, packetdata_arr):
         textEnd(1, "<<Very Good>>")
 
 
-    # meseage แจ้งเตือนความหนาไม่ได้อยู่ในช่วงที่กำหนด
-    meseage_thickness = "❎ความหนาไม่ได้อยู่ในช่วงที่กำหนด \n" +\
+    # message แจ้งเตือนความหนาไม่ได้อยู่ในช่วงที่กำหนด
+    message_thickness = "❎ความหนาไม่ได้อยู่ในช่วงที่กำหนด \n" +\
         "✅ช่วงที่กำหนด \n" +\
         f"({'%.2f' % min_Tickness}mm. - {'%.2f' % max_Tickness}mm.) \n" +\
         "🔰ข้อมูลความหนาที่ไม่อยู่ในช่วง \n"
     
-    meseage_alert = f"\n {timestamp_alert} \n" +\
+    message_alert = f"\n {timestamp_alert} \n" +\
         "🔰ระบบเครื่องชั่ง 10 เม็ด \n" +\
         f"🔰เครื่องตอก: {TABLET_ID} \n" +\
         f"🔰ชื่อยา: {productName} \n" +\
@@ -825,27 +827,27 @@ def remarksRecord(setting_data, packetdata_arr):
         if(tn == "-"):
             break
         elif float(tn) <  min_Tickness or float(tn) > max_Tickness:
-            meseage_thickness +=  f"เม็ดที่ {index+1}) {'%.2f' % float(tn)}mm. \n"
+            message_thickness +=  f"เม็ดที่ {index+1}) {'%.2f' % float(tn)}mm. \n"
             thicknessOutOfRange = True
         else:
             pass
-            # meseage_thickness +=  f"✅{index+1}) {'%.2f' % float(tn)}mm. \n"
+            # message_thickness +=  f"✅{index+1}) {'%.2f' % float(tn)}mm. \n"
     
-    meseage_alert += meseage_thickness
+    message_alert += message_thickness
 
     if thicknessOutOfRange:
         # debug
         logging.debug(f"addRemarks: {thickness}")
 
         # ส่งไลน์แจ้งเตือนค่าความหนาที่ไม่อยู่ในช่วง
-        lineNotify(meseage_alert)   
+        lineNotify(message_alert)   
 
         # ส่งบันทึกค่าความหนาที่ไม่อยู่ในช่วง
-        meseage_thickness = meseage_thickness.replace("❎", "")
-        meseage_thickness = meseage_thickness.replace("✅", "")
-        meseage_thickness = meseage_thickness.replace("❌", "")
-        meseage_thickness = meseage_thickness.replace("🔰", "")
-        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, meseage_thickness]])
+        message_thickness = message_thickness.replace("❎", "")
+        message_thickness = message_thickness.replace("✅", "")
+        message_thickness = message_thickness.replace("❌", "")
+        message_thickness = message_thickness.replace("🔰", "")
+        sendData_sheets(WEIGHTTABLE_REMARKS_RANGE, [[timestamp_alert, message_thickness]])
                                 
 # โปรแกรมหลัก
 def main():
